@@ -1,0 +1,6 @@
+{
+  "name": "CodeCare - Dashboard Cảnh Báo Sớm Học Lập Trình",
+  "description": "Dashboard cảnh báo sớm và hỗ trợ can thiệp trong học lập trình dựa trên Learning Analytics và AI có trách nhiệm.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
