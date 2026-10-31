@@ -15,7 +15,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { StorageService } from '../../services/storage';
-import { validateLearnerDataset } from '../../services/dataValidator';
+import { validateLearnerDataset, cleanLearnerDataset } from '../../services/dataValidator';
 import { exportLearnersToCSV, downloadFile } from '../../services/exportService';
 import { calculateDerivedLearner } from '../../services/analytics';
 import { LearnerDerived } from '../../types';
@@ -43,6 +43,7 @@ export const DataManagementView: React.FC<DataManagementViewProps> = ({
   // Validate raw data directly from storage
   const rawLearners = StorageService.getLearnersRaw();
   const validationReport = useMemo(() => validateLearnerDataset(rawLearners), [rawLearners]);
+  const cleaningResult = useMemo(() => cleanLearnerDataset(rawLearners), [rawLearners]);
 
   // Derived learners for CSV export if not passed
   const activeThresholds = StorageService.getThresholds();
@@ -470,6 +471,42 @@ export const DataManagementView: React.FC<DataManagementViewProps> = ({
                 • [{iss.learner_id}] Trường <span className="font-mono font-bold">{iss.field}</span> ({iss.issueType}): {iss.description}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Bản dữ liệu làm sạch riêng kèm nhật ký thay đổi (Không sửa âm thầm dữ liệu gốc) */}
+        {cleaningResult.changeLog.length > 0 && (
+          <div className="mt-3 p-3.5 bg-sky-50 border border-sky-200 rounded-xl text-xs space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="font-bold text-sky-950 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-sky-700" />
+                <span>Nhật ký Chuẩn hóa Dữ liệu (Data Cleaning Log - {cleaningResult.changeLog.length} điều chỉnh)</span>
+              </div>
+              <button
+                onClick={() => {
+                  downloadFile(
+                    JSON.stringify(cleaningResult.cleanedLearners, null, 2),
+                    `CodeCare_CleanedDataset_${new Date().toISOString().slice(0, 10)}.json`,
+                    'application/json;charset=utf-8;'
+                  );
+                  showToast('Đã tải xuống bộ dữ liệu đã làm sạch riêng biệt (JSON).');
+                }}
+                className="px-2.5 py-1 rounded-lg bg-sky-800 hover:bg-sky-900 text-white text-[11px] font-semibold flex items-center gap-1 cursor-pointer self-start sm:self-center"
+              >
+                <Download className="w-3 h-3" />
+                <span>Tải Bản Sạch Riêng (JSON)</span>
+              </button>
+            </div>
+            <p className="text-sky-800 text-[11px] leading-relaxed">
+              Theo nguyên tắc sư phạm, hệ thống <strong>bảo toàn 100% hồ sơ gốc</strong> trong kho lưu trữ, đồng thời cung cấp bản làm sạch riêng với nhật ký điều chỉnh minh bạch cho các trường hợp nộp trễ vượt quá bài nộp:
+            </p>
+            <div className="space-y-1 font-mono text-[11px] bg-white p-2.5 rounded-lg border border-sky-200">
+              {cleaningResult.changeLog.map((log, idx) => (
+                <div key={idx} className="text-slate-700">
+                  <span className="font-bold text-sky-900">[{log.learner_id}]</span> {log.field}: {log.original_value} ➔ <span className="text-emerald-700 font-bold">{log.cleaned_value}</span> ({log.reason})
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

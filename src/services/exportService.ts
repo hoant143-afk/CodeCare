@@ -62,12 +62,13 @@ export function exportLearnersToCSV(learners: LearnerDerived[]) {
 export function exportAuditReportToJSON(
   metrics: AuditMetric,
   simulation: ThresholdSimulationPoint[],
-  fairness: any
+  fairness: any,
+  sampleSize?: number
 ) {
   const data = {
     report_title: 'CodeCare - Báo cáo Audit Mô hình & Đánh giá Sư phạm',
     exported_at: new Date().toISOString(),
-    evaluation_sample_size: 80,
+    evaluation_sample_size: sampleSize ?? (metrics.tp + metrics.fp + metrics.tn + metrics.fn),
     metrics: {
       true_positives: metrics.tp,
       false_positives: metrics.fp,

@@ -238,6 +238,7 @@ export default function App() {
           {currentTab === 'overview' && (
             <OverviewView
               learners={visibleLearners}
+              thresholds={thresholds}
               selectedWeek={selectedWeek}
               onSelectLearner={setSelectedLearnerId}
               onNavigateToTab={setCurrentTab}

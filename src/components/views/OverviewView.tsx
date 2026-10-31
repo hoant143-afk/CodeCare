@@ -30,10 +30,11 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { LearnerDerived, TeacherConfirmation } from '../../types';
+import { LearnerDerived, TeacherConfirmation, ThresholdConfig } from '../../types';
 
 interface OverviewViewProps {
   learners: LearnerDerived[];
+  thresholds: ThresholdConfig;
   selectedWeek: number;
   onSelectLearner: (learnerId: string) => void;
   onNavigateToTab: (tab: any) => void;
@@ -42,6 +43,7 @@ interface OverviewViewProps {
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
   learners,
+  thresholds,
   selectedWeek,
   onSelectLearner,
   onNavigateToTab,
@@ -102,7 +104,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     (l) => l.alert_status === 'ALERT' && l.teacher_confirmation === 'UNREVIEWED'
   ).length;
 
-  // Chart A & B: Weekly trends (aggregated over all learners for weeks 1..6)
+  // Chart A & B: Weekly trends - Chỉ tính từ tử số và mẫu số thực tế, loại bỏ công thức biến đổi giả định
   const weeklyTrends = [1, 2, 3, 4, 5, 6].map((wk) => {
     let sumPass = 0;
     let sumRuns = 0;
@@ -121,15 +123,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       }
     }
 
-    const avgPass = count > 0 ? (sumPass / count) * 100 : 0;
-    const avgSub = count > 0 ? (sumSubmitted / count) * 100 : 0;
+    const hasData = count > 0;
+    const avgPass = hasData ? (sumPass / count) * 100 : null;
+    const avgSub = hasData ? (sumSubmitted / count) * 100 : null;
 
     return {
       week: `Tuần ${wk}`,
-      testPassRate: Number(avgPass.toFixed(1)),
-      submissionRate: Number(Math.min(100, avgSub * 0.9 + 10).toFixed(1)),
-      avgRuns: count > 0 ? Number((sumRuns / count).toFixed(1)) : 0,
-      avgErrors: count > 0 ? Number((sumErrors / count).toFixed(1)) : 0,
+      testPassRate: avgPass !== null ? Number(avgPass.toFixed(1)) : null,
+      submissionRate: avgSub !== null ? Number(avgSub.toFixed(1)) : null,
+      avgRuns: hasData ? Number((sumRuns / count).toFixed(1)) : null,
+      avgErrors: hasData ? Number((sumErrors / count).toFixed(1)) : null,
     };
   });
 
@@ -140,7 +143,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     { name: 'Có dấu hiệu cần hỗ trợ', value: alertCount, color: '#e11d48' },
   ];
 
-  // Chart D: Alert causes distribution among learners flagged with ALERT or WATCH
+  // Chart D: Đồng bộ nguyên nhân cảnh báo với cấu hình ngưỡng thực tế từ Settings
   let causeIncomplete = 0;
   let causeTestPassLow = 0;
   let causeLateSubmissions = 0;
@@ -151,24 +154,24 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   learners.forEach((l) => {
     if (l.alert_status !== 'NORMAL') {
-      if (l.submission_rate < 0.7) causeIncomplete++;
-      if (l.test_pass_rate < 0.5) causeTestPassLow++;
-      if (l.late_submissions >= 2) causeLateSubmissions++;
-      if (l.error_rate > 0.6) causeHighErrors++;
-      if (l.active_days_7d <= 2) causeLowActivity++;
+      if (l.assignments_due > 0 && l.submission_rate < thresholds.submissionRate) causeIncomplete++;
+      if (l.total_tests > 0 && l.test_pass_rate < thresholds.testPassRate) causeTestPassLow++;
+      if (l.late_submissions >= thresholds.lateCount) causeLateSubmissions++;
+      if (l.code_runs > 0 && l.error_rate > thresholds.errorRate) causeHighErrors++;
+      if (l.active_days_7d <= thresholds.activeDays) causeLowActivity++;
       if (l.progress_trend === 'DECLINING') causeDecliningTrend++;
-      if (l.code_runs >= 15 && l.test_pass_rate < 0.4) causeRunLoop++;
+      if (l.code_runs >= thresholds.highRunThreshold && l.test_pass_rate < thresholds.lowPassWithHighRun) causeRunLoop++;
     }
   });
 
   const causesData = [
-    { cause: 'Nộp thiếu bài (<70%)', count: causeIncomplete },
-    { cause: 'Test pass thấp (<50%)', count: causeTestPassLow },
-    { cause: 'Nộp trễ (>=2 bài)', count: causeLateSubmissions },
-    { cause: 'Tỷ lệ lỗi cao (>60%)', count: causeHighErrors },
-    { cause: 'Ít hoạt động (<=2 ngày)', count: causeLowActivity },
-    { cause: 'Xu hướng giảm', count: causeDecliningTrend },
-    { cause: 'Bế tắc chạy code', count: causeRunLoop },
+    { cause: `Nộp thiếu (<${Math.round(thresholds.submissionRate * 100)}%)`, count: causeIncomplete },
+    { cause: `Test pass thấp (<${Math.round(thresholds.testPassRate * 100)}%)`, count: causeTestPassLow },
+    { cause: `Nộp trễ (>=${thresholds.lateCount} bài)`, count: causeLateSubmissions },
+    { cause: `Tỷ lệ lỗi cao (>${Math.round(thresholds.errorRate * 100)}%)`, count: causeHighErrors },
+    { cause: `Ít hoạt động (<=${thresholds.activeDays} ngày)`, count: causeLowActivity },
+    { cause: 'Xu hướng suy giảm', count: causeDecliningTrend },
+    { cause: `Bế tắc vòng lặp (>=${thresholds.highRunThreshold} lần)`, count: causeRunLoop },
   ];
 
   // 5 Latest Alerts
@@ -363,7 +366,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <XAxis dataKey="week" stroke="#64748b" fontSize={11} />
                 <YAxis unit="%" stroke="#64748b" fontSize={11} domain={[40, 100]} />
                 <Tooltip
-                  formatter={(val: any) => [`${val}%`, 'Tỷ lệ hoàn thành']}
+                  formatter={(val: any) => [val !== null && val !== undefined ? `${val}%` : 'N/A', 'Tỷ lệ hoàn thành']}
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
                 />
                 <Area
@@ -379,8 +382,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </ResponsiveContainer>
           </div>
           <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2.5 mt-2 flex items-center justify-between">
-            <span>Ghi chú: Tuần 4 và 5 có tỷ lệ nộp bài giảm nhẹ do cấu trúc mảng và con trỏ phức tạp.</span>
-            <span className="font-mono text-slate-600 font-medium">Trung bình: ~84%</span>
+            <span>Ghi chú: Thống kê tỷ lệ nộp bài thực tế từ dữ liệu học tập qua từng tuần.</span>
+            <span className="font-mono text-slate-600 font-medium">Dữ liệu thực tế</span>
           </div>
         </div>
 
@@ -403,7 +406,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <XAxis dataKey="week" stroke="#64748b" fontSize={11} />
                 <YAxis unit="%" stroke="#64748b" fontSize={11} domain={[30, 100]} />
                 <Tooltip
-                  formatter={(val: any) => [`${val}%`, 'Tỷ lệ test đạt']}
+                  formatter={(val: any) => [val !== null && val !== undefined ? `${val}%` : 'N/A', 'Tỷ lệ test đạt']}
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
                 />
                 <Line

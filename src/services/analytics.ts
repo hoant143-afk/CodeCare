@@ -87,16 +87,16 @@ export function calculateDerivedLearner(
   let evidence_score = 0;
   const alert_reasons: string[] = [];
 
-  // Quy tắc 1: Tỷ lệ hoàn thành nhiệm vụ < ngưỡng (Mặc định 0.70)
-  if (submission_rate < thresholds.submissionRate) {
+  // Quy tắc 1: Tỷ lệ hoàn thành nhiệm vụ < ngưỡng (Mặc định 0.70) - Chỉ áp dụng khi có bài được giao (due > 0)
+  if (due > 0 && submission_rate < thresholds.submissionRate) {
     evidence_score += 2;
     alert_reasons.push(
       `Chỉ hoàn thành ${Math.round(submission_rate * 100)}% bài được giao (${submitted}/${due} bài)`
     );
   }
 
-  // Quy tắc 2: Tỷ lệ kiểm thử đạt < ngưỡng (Mặc định 0.50)
-  if (test_pass_rate < thresholds.testPassRate) {
+  // Quy tắc 2: Tỷ lệ kiểm thử đạt < ngưỡng (Mặc định 0.50) - Chỉ áp dụng khi có bộ kiểm thử (totalTests > 0)
+  if (totalTests > 0 && test_pass_rate < thresholds.testPassRate) {
     evidence_score += 2;
     alert_reasons.push(
       `Tỷ lệ vượt qua kiểm thử đạt ${Math.round(test_pass_rate * 100)}% (dưới ngưỡng tối thiểu ${Math.round(thresholds.testPassRate * 100)}%)`
@@ -111,8 +111,8 @@ export function calculateDerivedLearner(
     );
   }
 
-  // Quy tắc 4: Tỷ lệ lỗi trên tổng lần chạy > ngưỡng (Mặc định > 0.60)
-  if (error_rate > thresholds.errorRate) {
+  // Quy tắc 4: Tỷ lệ lỗi trên tổng lần chạy > ngưỡng (Mặc định > 0.60) - Chỉ áp dụng khi có chạy mã (runs > 0)
+  if (runs > 0 && error_rate > thresholds.errorRate) {
     evidence_score += 1;
     alert_reasons.push(
       `Tỷ lệ gặp lỗi cao (${Math.round(error_rate * 100)}% trên tổng số lần chạy mã, ${total_errors} lỗi / ${runs} lần)`
@@ -182,6 +182,33 @@ export function calculateDerivedLearner(
   };
 }
 
+/**
+ * Kiểm tra xem cảnh báo đã có hành động can thiệp sư phạm thực tế hay chưa.
+ * Trạng thái CONFIRMED hoặc PENDING đơn thuần KHÔNG được tính là đã thực thi can thiệp.
+ * Trạng thái STOPPED chỉ tính khi có bằng chứng/ghi chú kết quả can thiệp đi kèm.
+ */
+export function isInterventionExecuted(learner: LearnerDerived): boolean {
+  const status = learner.intervention_status;
+  if (!status || status === 'NONE' || status === 'PENDING') {
+    return false;
+  }
+  if (status === 'COMPLETED') {
+    return true;
+  }
+  if (status === 'IN_PROGRESS') {
+    return Boolean(
+      learner.intervention_type &&
+        (learner.intervention_date || (learner.teacher_notes && learner.teacher_notes.trim().length > 0))
+    );
+  }
+  if (status === 'STOPPED') {
+    return Boolean(
+      learner.intervention_outcome && learner.intervention_outcome.trim().length > 0
+    );
+  }
+  return false;
+}
+
 export function computeAuditMetrics(learners: LearnerDerived[]): AuditMetric {
   let tp = 0;
   let fp = 0;
@@ -196,8 +223,8 @@ export function computeAuditMetrics(learners: LearnerDerived[]): AuditMetric {
 
     if (isAlert) {
       totalAlerts++;
-      // Actionable when teacher confirmed or an intervention is established
-      if (learner.teacher_confirmation === 'CONFIRMED' || (learner.intervention_status && learner.intervention_status !== 'NONE')) {
+      // Chỉ tính là can thiệp khi có bằng chứng thực thi hành động can thiệp thực tế
+      if (isInterventionExecuted(learner)) {
         actionableInterventions++;
       }
     }

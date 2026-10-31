@@ -14,7 +14,8 @@ export interface TestRunReport {
 
 export function runAutomatedTestSuites(
   learners: LearnerRaw[],
-  activeThresholds: ThresholdConfig = DEFAULT_THRESHOLDS
+  activeThresholds: ThresholdConfig = DEFAULT_THRESHOLDS,
+  existingTestCases?: TestCaseItem[]
 ): TestRunReport {
   const startTime = performance.now();
   const testResults: TestCaseItem[] = [];
@@ -320,8 +321,8 @@ export function runAutomatedTestSuites(
     'Ổn định hệ thống',
     'assignments_due = 0, code_runs = 0, total_tests = 0',
     'Tính các biến dẫn xuất submission_rate, error_rate, test_pass_rate',
-    'Không phát sinh NaN hay Infinity, các tỷ lệ được gán an toàn = 0',
-    'Đảm bảo hệ sinh thái toán học không bị crash khi gặp tuần học đầu hoặc sinh viên chưa chạy code.',
+    'Không phát sinh NaN hay Infinity, các tỷ lệ = 0, không bị phạt điểm nộp bài (due=0) hay test pass (tests=0), alert_status = NORMAL',
+    'Đảm bảo hệ sinh thái toán học không bị crash và không phạt oan học sinh khi chưa giao bài hoặc chưa cấu hình test.',
     () => {
       const emptyStudent: LearnerRaw = {
         learner_id: 'TEST_ZERO_01',
@@ -347,17 +348,22 @@ export function runAutomatedTestSuites(
         weekly_history: [],
       };
       const derived = calculateDerivedLearner(emptyStudent, activeThresholds);
-      const pass =
+      const isFiniteSafe =
         Number.isFinite(derived.submission_rate) &&
         Number.isFinite(derived.error_rate) &&
         Number.isFinite(derived.test_pass_rate) &&
         !Number.isNaN(derived.submission_rate) &&
         !Number.isNaN(derived.error_rate) &&
         !Number.isNaN(derived.test_pass_rate);
+      const notPenalized =
+        !derived.alert_reasons.some((r) => r.includes('Chỉ hoàn thành')) &&
+        !derived.alert_reasons.some((r) => r.includes('Tỷ lệ vượt qua kiểm thử')) &&
+        derived.alert_status === 'NORMAL';
+      const pass = isFiniteSafe && notPenalized;
       return {
         pass,
-        actual: `submission_rate: ${derived.submission_rate}, error_rate: ${derived.error_rate}, test_pass_rate: ${derived.test_pass_rate}`,
-        error: pass ? undefined : 'Phát hiện NaN hoặc Infinity',
+        actual: `submission_rate: ${derived.submission_rate}, test_pass_rate: ${derived.test_pass_rate}, evidence_score: ${derived.evidence_score}, alert_status: ${derived.alert_status}`,
+        error: pass ? undefined : 'Phát hiện NaN, Infinity hoặc bị phạt sai quy tắc khi due=0 / tests=0',
       };
     }
   );
@@ -406,7 +412,9 @@ export function runAutomatedTestSuites(
     }
   );
 
-  // Manual UI Test Cases (Tagged for transparency)
+  // Manual UI Test Cases (Preserve PENDING until explicitly confirmed by user in UI)
+  const existingM01 = existingTestCases?.find((t) => t.id === 'TC-M01');
+  const isM01Confirmed = existingM01?.status === 'PASS';
   testResults.push({
     id: 'TC-M01',
     title: 'Kiểm thử Thủ công: Giáo viên xác nhận cảnh báo & lập can thiệp',
@@ -415,11 +423,15 @@ export function runAutomatedTestSuites(
     input_data: 'Bấm nút "Xác nhận cần hỗ trợ" tại hồ sơ STU023, nhập ghi chú và chọn hình thức can thiệp',
     action: 'Thực hiện thao tác trên modal hồ sơ học sinh và bấm "Lưu quyết định"',
     expected_result: 'Trạng thái chuyển thành CONFIRMED, lưu thời gian, đồng bộ vào danh sách Can thiệp và Nhật ký AI',
-    actual_result: 'Đã tích hợp giao diện tương tác và lưu trữ trực tiếp vào localStorage',
-    status: 'PASS',
-    details: 'Được phân loại là kiểm thử giao diện thủ công (Human-in-the-loop validation).',
+    actual_result: isM01Confirmed
+      ? 'Đã được giáo viên/người dùng kiểm tra thực tế và xác nhận đạt yêu cầu'
+      : 'Chờ người dùng thực hiện kiểm tra thực tế trên giao diện và bấm xác nhận',
+    status: isM01Confirmed ? 'PASS' : 'PENDING',
+    details: 'Được phân loại là kiểm thử giao diện thủ công (Human-in-the-loop validation). Chỉ chuyển PASS khi có thao tác xác nhận.',
   });
 
+  const existingM02 = existingTestCases?.find((t) => t.id === 'TC-M02');
+  const isM02Confirmed = existingM02?.status === 'PASS';
   testResults.push({
     id: 'TC-M02',
     title: 'Kiểm thử Thủ công: Giáo viên ghi đè/bác bỏ cảnh báo (Teacher Override)',
@@ -428,9 +440,11 @@ export function runAutomatedTestSuites(
     input_data: 'Bấm nút "Bác bỏ" / "Không cần can thiệp" đối với STU015 (False Positive)',
     action: 'Thực hiện thao tác bác bỏ trên thẻ cảnh báo hoặc modal hồ sơ',
     expected_result: 'Trạng thái chuyển thành DISMISSED, lưu vào nhật ký AI, không ép buộc can thiệp',
-    actual_result: 'Đã tích hợp cơ chế ghi đè chuyên môn và hiển thị nhãn "Đã bác bỏ"',
-    status: 'PASS',
-    details: 'Đảm bảo quyền quyết định tối cao thuộc về giáo viên.',
+    actual_result: isM02Confirmed
+      ? 'Đã được giáo viên/người dùng kiểm tra thực tế và xác nhận đạt yêu cầu'
+      : 'Chờ người dùng thực hiện kiểm tra thực tế trên giao diện và bấm xác nhận',
+    status: isM02Confirmed ? 'PASS' : 'PENDING',
+    details: 'Đảm bảo quyền quyết định tối cao thuộc về giáo viên. Chỉ chuyển PASS khi có thao tác xác nhận.',
   });
 
   const endTime = performance.now();

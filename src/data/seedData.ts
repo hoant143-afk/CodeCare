@@ -2549,8 +2549,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU001 (Submission 100%, Test pass 90%, Trễ 0, Chạy 22 lần, Lỗi 27%)',
     action: 'Chạy thuật toán tính Evidence Score với ngưỡng mặc định',
     expected_result: 'Evidence Score <= 2, trạng thái: "Bình thường" (NORMAL), không xuất hiện trong danh sách cảnh báo',
-    actual_result: 'Evidence Score = 0, trạng thái: "Bình thường", không có cảnh báo',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Đảm bảo hệ thống không tạo phiền toái hoặc cảnh báo rác với các bạn đang tiến bộ tốt.'
   },
   {
@@ -2561,8 +2561,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU002 (Bài nộp 3/6, Tỷ lệ nộp 50% < 70%, 2 bài trễ)',
     action: 'Kiểm tra điều kiện nộp bài và bài trễ',
     expected_result: 'Cộng +2 điểm nộp thiếu, +1 điểm nộp trễ. Tổng điểm tăng',
-    actual_result: 'Hệ thống cộng đúng +2 điểm do nộp thiếu (<0.70) và +1 điểm do >= 2 bài trễ',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Lý do cảnh báo hiển thị rõ: "Chỉ hoàn thành 50% bài được giao" và "2 bài gần nhất nộp trễ".'
   },
   {
@@ -2573,8 +2573,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU007 (Pass rate 19% < 50%)',
     action: 'Kiểm tra điều kiện test_pass_rate < 0.50',
     expected_result: 'Cộng +2 điểm kiểm thử thấp',
-    actual_result: 'Hệ thống cộng đúng +2 điểm, lý do hiển thị: "Tỷ lệ vượt qua kiểm thử đạt 19% (< 50%)"',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Chỉ số kiểm thử phản ánh trực tiếp năng lực viết mã đáp ứng yêu cầu kỹ thuật.'
   },
   {
@@ -2585,8 +2585,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU003 (Code runs = 38 >= 15, Pass rate = 36% < 40%)',
     action: 'Kiểm tra quy tắc code_runs >= 15 && test_pass_rate < 0.40',
     expected_result: 'Cộng +1 điểm bế tắc lập trình, tổng Evidence Score = 5, trạng thái ALERT',
-    actual_result: 'Hệ thống kích hoạt điểm bế tắc, tổng Evidence Score = 5, cảnh báo mức cao ALERT',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Nhận diện tình trạng học sinh thử-sai mù quáng (trial-and-error) mà không nắm vững nguyên lý.'
   },
   {
@@ -2597,8 +2597,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU023 (Active days = 1 <= 2 ngày, Login = 4 lần)',
     action: 'Kiểm tra điều kiện active_days_7d <= 2',
     expected_result: 'Cộng +1 điểm gắn kết thấp',
-    actual_result: 'Hệ thống cộng +1 điểm vì số ngày hoạt động trong tuần chỉ đạt 1 ngày',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Kịp thời nhắc nhở trước khi người học rơi vào tình trạng bỏ học (drop out).'
   },
   {
@@ -2609,8 +2609,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU010 (Late submissions = 2 >= 2)',
     action: 'Kiểm tra ngưỡng nộp trễ lateCount >= 2',
     expected_result: 'Cộng +1 điểm nộp trễ',
-    actual_result: 'Hệ thống ghi nhận dấu hiệu nộp trễ và nêu rõ trong lý do cảnh báo',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Giúp giáo viên thăm dò khó khăn về thời gian hoặc khối lượng học tập.'
   },
   {
@@ -2621,8 +2621,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU002 (Previous test pass: 55%, Current test pass: 33%)',
     action: 'So sánh current_test_pass_rate với previous_test_pass_rate',
     expected_result: 'Trend = DECLINING, cộng +1 điểm dấu hiệu tụt lùi',
-    actual_result: 'Trend xác định chính xác DECLINING, cộng +1 điểm Evidence Score',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Phát hiện sớm người học từng học ổn nhưng bắt đầu gặp khó ở chủ đề mới.'
   },
   {
@@ -2633,8 +2633,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU015 (Hệ thống gán Cảnh báo với Score=5, nhưng nhãn giáo viên = NORMAL)',
     action: 'Đưa qua ma trận nhầm lẫn Confusion Matrix',
     expected_result: 'Xếp vào ô False Positive (FP), có mục giải thích nguyên nhân sai dương',
-    actual_result: 'Xếp đúng vào FP (FP count tăng), xuất hiện trong danh sách "Phân tích sai dương"',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Giải thích: Học sinh tự viết mã thử nghiệm phức tạp, giáo viên nắm rõ nên không can thiệp.'
   },
   {
@@ -2645,8 +2645,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'STU048 (Hệ thống gán Normal, nhưng nhãn giáo viên = NEED_SUPPORT)',
     action: 'Đưa qua ma trận nhầm lẫn Confusion Matrix',
     expected_result: 'Xếp vào ô False Negative (FN), xuất hiện trong mục "Phân tích sai âm"',
-    actual_result: 'Xếp đúng vào ô FN (FN count tăng), hiển thị cảnh báo bỏ sót tín hiệu',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Giải thích: Học sinh nộp bài hoàn chỉnh trên web nhưng thực tế trên lớp bị phụ thuộc bạn cùng nhóm.'
   },
   {
@@ -2657,8 +2657,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'Hồ sơ giả lập biên: submission_rate = 50% (+2đ), active_days = 2 (+1đ), các chỉ số khác bình thường',
     action: 'Chạy calculateDerivedLearner với hồ sơ biên kiểm thử chuyên biệt',
     expected_result: 'Evidence Score = 3, alert_status = "WATCH" (Theo dõi thêm)',
-    actual_result: 'Evidence Score = 3, alert_status = WATCH',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Được thiết kế riêng để xác thực thuật toán chuyển tiếp sang nhóm WATCH mà không sửa 80 hồ sơ gốc.'
   },
   {
@@ -2669,8 +2669,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'assignments_due = 0, code_runs = 0, total_tests = 0',
     action: 'Tính toán các biến dẫn xuất submission_rate, error_rate, test_pass_rate',
     expected_result: 'Các tỷ lệ bằng 0, không phát sinh NaN hoặc Infinity, không gây crash ứng dụng',
-    actual_result: 'submission_rate = 0, error_rate = 0, test_pass_rate = 0, Number.isFinite = true',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Đảm bảo ứng dụng hoạt động ổn định trong mọi tình huống dữ liệu khởi đầu.'
   },
   {
@@ -2681,8 +2681,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'submission_rate = 0.70, test_pass_rate = 0.50, error_rate = 0.60, late = 2, active_days = 2',
     action: 'Kiểm tra toán tử so sánh nghiêm ngặt (< vs <=, > vs >=)',
     expected_result: 'Các điều kiện nghiêm ngặt (<0.70, <0.50, >0.60) KHÔNG kích hoạt; các điều kiện (>=2, <=2) KÍCH HOẠT. Điểm = 2, alert_status = NORMAL',
-    actual_result: 'Evidence Score = 2, alert_status = NORMAL',
-    status: 'PASS',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
     details: 'Đảm bảo xử lý đúng học sinh nằm ngay mép ngưỡng mà không bị phạt oan.'
   },
   {
@@ -2693,8 +2693,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'Bấm nút "Xác nhận cần hỗ trợ" tại hồ sơ STU023, nhập ghi chú và chọn hình thức can thiệp',
     action: 'Thực hiện thao tác trên modal hồ sơ học sinh và bấm "Lưu quyết định"',
     expected_result: 'Trạng thái chuyển thành CONFIRMED, lưu thời gian, đồng bộ vào danh sách Can thiệp và Nhật ký AI',
-    actual_result: 'Đã tích hợp giao diện tương tác và lưu trữ trực tiếp vào localStorage',
-    status: 'PASS',
+    actual_result: 'Chưa thực hiện kiểm tra thủ công trên giao diện',
+    status: 'PENDING',
     details: 'Được phân loại là kiểm thử giao diện thủ công (Human-in-the-loop validation).'
   },
   {
@@ -2705,8 +2705,8 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     input_data: 'Bấm nút "Bác bỏ" / "Không cần can thiệp" đối với STU015 (False Positive)',
     action: 'Thực hiện thao tác bác bỏ trên thẻ cảnh báo hoặc modal hồ sơ',
     expected_result: 'Trạng thái chuyển thành DISMISSED, lưu vào nhật ký AI, không ép buộc can thiệp',
-    actual_result: 'Đã tích hợp cơ chế ghi đè chuyên môn và hiển thị nhãn "Đã bác bỏ"',
-    status: 'PASS',
+    actual_result: 'Chưa thực hiện kiểm tra thủ công trên giao diện',
+    status: 'PENDING',
     details: 'Đảm bảo quyền quyết định tối cao thuộc về giáo viên.'
   }
 ];

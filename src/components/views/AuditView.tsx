@@ -82,7 +82,7 @@ export const AuditView: React.FC<AuditViewProps> = ({
           </div>
 
           <button
-            onClick={() => exportAuditReportToJSON(metrics, thresholdPoints, fairness)}
+            onClick={() => exportAuditReportToJSON(metrics, thresholdPoints, fairness, learners.length)}
             className="px-3.5 py-2 rounded-lg bg-sky-800 hover:bg-sky-900 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 self-start md:self-center"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -137,7 +137,7 @@ export const AuditView: React.FC<AuditViewProps> = ({
             {(metrics.accuracy * 100).toFixed(1)}%
           </div>
           <div className="text-[11px] text-slate-500 leading-snug">
-            Tỷ lệ quyết định đúng trên toàn bộ 80 học sinh (cả bình thường và cần hỗ trợ).
+            Tỷ lệ quyết định đúng trên toàn bộ {learners.length} học sinh (cả bình thường và cần hỗ trợ).
           </div>
         </div>
 

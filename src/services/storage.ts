@@ -130,19 +130,34 @@ export const StorageService = {
 
   addAuditLog(item: Omit<AuditLogItem, 'id' | 'timestamp'>): void {
     const logs = this.getAuditLogs();
+    const uniqueSuffix = `${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
     const newLog: AuditLogItem = {
       ...item,
-      id: `LOG-${Date.now().toString().slice(-4)}`,
+      id: `LOG-${uniqueSuffix}`,
       timestamp: new Date().toLocaleString('vi-VN', { hour12: false }),
     };
     logs.unshift(newLog);
-    localStorage.setItem(KEYS.LOGS, JSON.stringify(logs.slice(0, 50)));
+    // Không cắt ngắn .slice(0, 50) để bảo toàn đầy đủ lịch sử audit log
+    localStorage.setItem(KEYS.LOGS, JSON.stringify(logs));
   },
 
   getTeacherSurveys(): TeacherSurveyResponse[] {
     try {
       const data = localStorage.getItem(KEYS.SURVEYS);
-      if (data) return JSON.parse(data);
+      if (data) {
+        const parsed: TeacherSurveyResponse[] = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          return parsed.map((s) => ({
+            ...s,
+            // Bảo đảm dữ liệu khảo sát mẫu đã lưu từ phiên bản cũ không bị hiểu nhầm thành phản hồi thực tế
+            is_sample:
+              s.is_sample === true ||
+              s.id === 'SURV_01' ||
+              s.id === 'SURV_02' ||
+              s.id === 'SURV_03',
+          }));
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -212,11 +227,19 @@ export const StorageService = {
   previewBackup(jsonString: string): { valid: boolean; error?: string; summary?: any } {
     try {
       const parsed = JSON.parse(jsonString);
-      if (!parsed || typeof parsed !== 'object') {
-        return { valid: false, error: 'Tệp sao lưu không đúng định dạng JSON hợp lệ.' };
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { valid: false, error: 'Tệp sao lưu không đúng định dạng JSON object hợp lệ.' };
       }
       if (!Array.isArray(parsed.learners) || parsed.learners.length === 0) {
         return { valid: false, error: 'Tệp sao lưu thiếu danh sách người học (learners) hoặc danh sách rỗng.' };
+      }
+      for (const item of parsed.learners.slice(0, 5)) {
+        if (!item || typeof item !== 'object' || !item.learner_id || !item.class_name) {
+          return { valid: false, error: 'Cấu trúc hồ sơ người học trong tệp sao lưu không đúng chuẩn.' };
+        }
+      }
+      if (parsed.thresholds && typeof parsed.thresholds !== 'object') {
+        return { valid: false, error: 'Cấu hình ngưỡng (thresholds) trong tệp sao lưu không hợp lệ.' };
       }
       return {
         valid: true,
@@ -233,15 +256,24 @@ export const StorageService = {
     }
   },
 
-  restoreBackup(jsonString: string): { success: boolean; message: string } {
+  restoreBackup(jsonString: string, isRollback = false): { success: boolean; message: string } {
     const preview = this.previewBackup(jsonString);
     if (!preview.valid) {
       return { success: false, message: preview.error || 'Dữ liệu sao lưu không hợp lệ.' };
     }
+
+    // Sao lưu trạng thái hiện tại trong bộ nhớ để hoàn tác nguyên tử nếu ghi lỗi
+    const previousState: Record<string, string | null> = {};
+    for (const key of Object.values(KEYS)) {
+      previousState[key] = localStorage.getItem(key);
+    }
+
     try {
-      // Save rollback slot before modifying
-      const rollback = this.createBackup();
-      localStorage.setItem('codecare_rollback_snapshot', rollback);
+      // Chỉ lưu snapshot rollback mới khi KHÔNG PHẢI đang thực hiện rollback
+      if (!isRollback) {
+        const rollback = this.createBackup();
+        localStorage.setItem('codecare_rollback_snapshot', rollback);
+      }
 
       const parsed = JSON.parse(jsonString);
       if (parsed.thresholds) localStorage.setItem(KEYS.THRESHOLDS, JSON.stringify(parsed.thresholds));
@@ -254,15 +286,23 @@ export const StorageService = {
       this.addAuditLog({
         learner_id: 'SYSTEM',
         event_type: 'Khôi phục sao lưu',
-        reasons: 'Người dùng nạp lại file sao lưu JSON',
+        reasons: isRollback ? 'Người dùng bấm nút Hoàn tác (Rollback)' : 'Người dùng nạp lại file sao lưu JSON',
         system_result: 'Khôi phục thành công',
-        teacher_decision: 'Đã khôi phục dữ liệu',
+        teacher_decision: isRollback ? 'Đã hoàn tác phiên trước' : 'Đã khôi phục dữ liệu',
         notes: `Nạp lại ${parsed.learners.length} học viên từ bản sao lưu ngày ${parsed.exported_at || 'N/A'}.`,
       });
 
       return { success: true, message: `Khôi phục thành công ${parsed.learners.length} học viên!` };
     } catch (e: any) {
-      return { success: false, message: `Lỗi khi khôi phục: ${e.message}` };
+      // Hoàn tác lại trạng thái cũ nếu quá trình ghi bị lỗi
+      for (const [key, value] of Object.entries(previousState)) {
+        if (value !== null) {
+          localStorage.setItem(key, value);
+        } else {
+          localStorage.removeItem(key);
+        }
+      }
+      return { success: false, message: `Lỗi khi khôi phục, đã hoàn tác về trạng thái trước: ${e.message}` };
     }
   },
 
@@ -272,7 +312,7 @@ export const StorageService = {
       if (!rollbackData) {
         return { success: false, message: 'Không tìm thấy điểm khôi phục (snapshot) trước đó.' };
       }
-      return this.restoreBackup(rollbackData);
+      return this.restoreBackup(rollbackData, true);
     } catch (e: any) {
       return { success: false, message: `Lỗi rollback: ${e.message}` };
     }
