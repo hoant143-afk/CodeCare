@@ -31,6 +31,7 @@ import {
   computeFairnessAudit,
 } from '../../services/analytics';
 import { StorageService } from '../../services/storage';
+import { exportAuditReportToJSON } from '../../services/exportService';
 
 interface AuditViewProps {
   learners: LearnerDerived[];
@@ -79,6 +80,14 @@ export const AuditView: React.FC<AuditViewProps> = ({
               Đánh giá chất lượng của thuật toán suy luận Evidence-based Alert so với nhãn chuẩn chuyên môn của giảng viên (Teacher Ground Truth). Phân tích toàn diện Ma trận nhầm lẫn (Confusion Matrix), Độ chuẩn xác, Độ bao phủ, các trường hợp sai số và tính công bằng giữa các phân nhóm.
             </p>
           </div>
+
+          <button
+            onClick={() => exportAuditReportToJSON(metrics, thresholdPoints, fairness)}
+            className="px-3.5 py-2 rounded-lg bg-sky-800 hover:bg-sky-900 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 self-start md:self-center"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Xuất Báo cáo Audit (JSON)</span>
+          </button>
         </div>
       </div>
 
@@ -299,6 +308,10 @@ export const AuditView: React.FC<AuditViewProps> = ({
                 <tr>
                   <th className="p-1.5">Ngưỡng</th>
                   <th className="p-1.5">Số cảnh báo</th>
+                  <th className="p-1.5 text-emerald-800">TP</th>
+                  <th className="p-1.5 text-amber-800">FP</th>
+                  <th className="p-1.5 text-sky-800">TN</th>
+                  <th className="p-1.5 text-rose-800">FN</th>
                   <th className="p-1.5">Precision</th>
                   <th className="p-1.5">Recall</th>
                   <th className="p-1.5">Accuracy</th>
@@ -312,8 +325,12 @@ export const AuditView: React.FC<AuditViewProps> = ({
                   >
                     <td className="p-1.5">Score &ge; {pt.threshold} {pt.threshold === thresholds.evidenceAlert && '(Hiện tại)'}</td>
                     <td className="p-1.5">{pt.alertCount} SV</td>
-                    <td className="p-1.5">{pt.precision}%</td>
-                    <td className="p-1.5">{pt.recall}%</td>
+                    <td className="p-1.5 font-bold text-emerald-700">{pt.tp}</td>
+                    <td className="p-1.5 font-bold text-amber-700">{pt.fp}</td>
+                    <td className="p-1.5 font-bold text-sky-700">{pt.tn}</td>
+                    <td className="p-1.5 font-bold text-rose-700">{pt.fn}</td>
+                    <td className="p-1.5 font-semibold text-sky-900">{pt.precision}%</td>
+                    <td className="p-1.5 font-semibold text-emerald-800">{pt.recall}%</td>
                     <td className="p-1.5">{pt.accuracy}%</td>
                   </tr>
                 ))}
@@ -475,7 +492,14 @@ export const AuditView: React.FC<AuditViewProps> = ({
               <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
                 {fairness.byActivity.map((g) => (
                   <tr key={g.groupName}>
-                    <td className="p-1 text-left font-sans font-medium text-slate-700">{g.groupName}</td>
+                    <td className="p-1 text-left font-sans font-medium text-slate-700">
+                      {g.groupName}
+                      {g.count < 10 && (
+                        <span className="ml-1 text-[9px] text-amber-800 bg-amber-100/90 px-1 py-0.2 rounded font-normal" title="Mẫu nhỏ N < 10">
+                          N&lt;10
+                        </span>
+                      )}
+                    </td>
                     <td className="p-1">{g.count}</td>
                     <td className="p-1 font-semibold text-sky-800">{(g.precision * 100).toFixed(0)}%</td>
                     <td className="p-1 font-semibold text-emerald-700">{(g.recall * 100).toFixed(0)}%</td>
@@ -502,7 +526,14 @@ export const AuditView: React.FC<AuditViewProps> = ({
               <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
                 {fairness.byCompleteness.map((g) => (
                   <tr key={g.groupName}>
-                    <td className="p-1 text-left font-sans font-medium text-slate-700">{g.groupName.split(' ')[0]} {g.groupName.split(' ')[1]}</td>
+                    <td className="p-1 text-left font-sans font-medium text-slate-700">
+                      {g.groupName.split(' ')[0]} {g.groupName.split(' ')[1]}
+                      {g.count < 10 && (
+                        <span className="ml-1 text-[9px] text-amber-800 bg-amber-100/90 px-1 py-0.2 rounded font-normal" title="Mẫu nhỏ N < 10">
+                          N&lt;10
+                        </span>
+                      )}
+                    </td>
                     <td className="p-1">{g.count}</td>
                     <td className="p-1 font-semibold text-sky-800">{(g.precision * 100).toFixed(0)}%</td>
                     <td className="p-1 font-semibold text-emerald-700">{(g.recall * 100).toFixed(0)}%</td>

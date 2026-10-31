@@ -13,8 +13,10 @@ import {
   ChevronRight,
   User,
   SlidersHorizontal,
+  Download,
 } from 'lucide-react';
 import { LearnerDerived, ClassName, AlertStatus, ProgressTrend, TeacherConfirmation } from '../../types';
+import { exportLearnersToCSV } from '../../services/exportService';
 
 interface LearnersViewProps {
   learners: LearnerDerived[];
@@ -97,6 +99,14 @@ export const LearnersView: React.FC<LearnersViewProps> = ({
             Dữ liệu học tập và lập trình ẩn danh. Không phân hạng hay gán nhãn cố định người học.
           </p>
         </div>
+
+        <button
+          onClick={() => exportLearnersToCSV(filteredLearners)}
+          className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs self-start sm:self-center"
+        >
+          <Download className="w-3.5 h-3.5 text-emerald-700" />
+          <span>Xuất CSV ({filteredLearners.length} SV)</span>
+        </button>
       </div>
 
       {/* Filter and Search Bar */}

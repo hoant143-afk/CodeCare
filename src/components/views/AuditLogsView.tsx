@@ -9,9 +9,11 @@ import {
   Eye,
   XCircle,
   FileText,
+  Download,
 } from 'lucide-react';
 import { AuditLogItem } from '../../types';
 import { StorageService } from '../../services/storage';
+import { exportAuditLogsToCSV } from '../../services/exportService';
 
 export const AuditLogsView: React.FC = () => {
   const [logs] = useState<AuditLogItem[]>(StorageService.getAuditLogs());
@@ -41,6 +43,14 @@ export const AuditLogsView: React.FC = () => {
             Lưu vết toàn diện các sự kiện sinh cảnh báo, xác nhận, từ chối và can thiệp nhằm đảm bảo tính minh bạch giải trình (Accountability).
           </p>
         </div>
+
+        <button
+          onClick={() => exportAuditLogsToCSV(filteredLogs)}
+          className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs self-start sm:self-center"
+        >
+          <Download className="w-3.5 h-3.5 text-emerald-700" />
+          <span>Xuất Nhật ký CSV</span>
+        </button>
       </div>
 
       {/* Search box */}

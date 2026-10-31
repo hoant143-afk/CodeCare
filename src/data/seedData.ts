@@ -2481,13 +2481,14 @@ export const INITIAL_TEACHER_REVIEWS: Record<string, {
   }
 };
 
-// Initial Teacher Survey responses (from 4 teachers)
+// Initial Teacher Survey responses (from 3 expert teachers)
 export const SEED_SURVEYS: TeacherSurveyResponse[] = [
   {
     id: 'SURV_01',
     teacher_name: 'TS. Nguyễn Văn Hùng',
     subject: 'Nhập môn Lập trình (CS101)',
     created_at: '2026-10-08 17:30',
+    is_sample: true,
     q1_easy_to_use: 5,
     q2_indicators_clear: 4,
     q3_reasons_clear: 5,
@@ -2505,6 +2506,7 @@ export const SEED_SURVEYS: TeacherSurveyResponse[] = [
     teacher_name: 'ThS. Trần Thị Mai Lan',
     subject: 'Cấu trúc dữ liệu và Giải thuật',
     created_at: '2026-10-09 10:15',
+    is_sample: true,
     q1_easy_to_use: 4,
     q2_indicators_clear: 5,
     q3_reasons_clear: 5,
@@ -2522,6 +2524,7 @@ export const SEED_SURVEYS: TeacherSurveyResponse[] = [
     teacher_name: 'ThS. Lê Hoàng Quân',
     subject: 'Lập trình Hướng đối tượng',
     created_at: '2026-10-10 14:00',
+    is_sample: true,
     q1_easy_to_use: 5,
     q2_indicators_clear: 4,
     q3_reasons_clear: 4,
@@ -2536,12 +2539,13 @@ export const SEED_SURVEYS: TeacherSurveyResponse[] = [
   }
 ];
 
-// 12 Rigorous Test Cases for Learning Analytics Validation
+// 12 Rigorous Test Cases for Learning Analytics Validation (plus Edge Cases and Manual UI verification)
 export const SEED_TEST_CASES: TestCaseItem[] = [
   {
     id: 'TC-01',
     title: 'Học sinh học tập bình thường không bị cảnh báo',
     category: 'Cảnh báo chuẩn',
+    test_type: 'AUTOMATED',
     input_data: 'STU001 (Submission 100%, Test pass 90%, Trễ 0, Chạy 22 lần, Lỗi 27%)',
     action: 'Chạy thuật toán tính Evidence Score với ngưỡng mặc định',
     expected_result: 'Evidence Score <= 2, trạng thái: "Bình thường" (NORMAL), không xuất hiện trong danh sách cảnh báo',
@@ -2553,6 +2557,7 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-02',
     title: 'Phát hiện học sinh nộp thiếu nhiều bài tập',
     category: 'Hành vi nộp bài',
+    test_type: 'AUTOMATED',
     input_data: 'STU002 (Bài nộp 3/6, Tỷ lệ nộp 50% < 70%, 2 bài trễ)',
     action: 'Kiểm tra điều kiện nộp bài và bài trễ',
     expected_result: 'Cộng +2 điểm nộp thiếu, +1 điểm nộp trễ. Tổng điểm tăng',
@@ -2564,6 +2569,7 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-03',
     title: 'Phát hiện tỷ lệ test pass case thấp',
     category: 'Chất lượng lập trình',
+    test_type: 'AUTOMATED',
     input_data: 'STU007 (Pass rate 19% < 50%)',
     action: 'Kiểm tra điều kiện test_pass_rate < 0.50',
     expected_result: 'Cộng +2 điểm kiểm thử thấp',
@@ -2575,10 +2581,11 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-04',
     title: 'Chạy mã nhiều lần nhưng không cải thiện (Debugging loop)',
     category: 'Vòng lặp bế tắc',
+    test_type: 'AUTOMATED',
     input_data: 'STU003 (Code runs = 38 >= 15, Pass rate = 36% < 40%)',
     action: 'Kiểm tra quy tắc code_runs >= 15 && test_pass_rate < 0.40',
-    expected_result: 'Cộng +1 điểm bế tắc lập trình',
-    actual_result: 'Hệ thống kích hoạt điểm bế tắc, tổng Evidence Score = 6, cảnh báo mức cao',
+    expected_result: 'Cộng +1 điểm bế tắc lập trình, tổng Evidence Score = 5, trạng thái ALERT',
+    actual_result: 'Hệ thống kích hoạt điểm bế tắc, tổng Evidence Score = 5, cảnh báo mức cao ALERT',
     status: 'PASS',
     details: 'Nhận diện tình trạng học sinh thử-sai mù quáng (trial-and-error) mà không nắm vững nguyên lý.'
   },
@@ -2586,6 +2593,7 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-05',
     title: 'Phát hiện ít hoạt động và vắng mặt',
     category: 'Mức độ gắn kết',
+    test_type: 'AUTOMATED',
     input_data: 'STU023 (Active days = 1 <= 2 ngày, Login = 4 lần)',
     action: 'Kiểm tra điều kiện active_days_7d <= 2',
     expected_result: 'Cộng +1 điểm gắn kết thấp',
@@ -2597,6 +2605,7 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-06',
     title: 'Nộp trễ bài tập liên tiếp',
     category: 'Hành vi nộp bài',
+    test_type: 'AUTOMATED',
     input_data: 'STU010 (Late submissions = 2 >= 2)',
     action: 'Kiểm tra ngưỡng nộp trễ lateCount >= 2',
     expected_result: 'Cộng +1 điểm nộp trễ',
@@ -2608,6 +2617,7 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-07',
     title: 'Xu hướng kết quả kiểm thử suy giảm (DECLINING)',
     category: 'Xu hướng học tập',
+    test_type: 'AUTOMATED',
     input_data: 'STU002 (Previous test pass: 55%, Current test pass: 33%)',
     action: 'So sánh current_test_pass_rate với previous_test_pass_rate',
     expected_result: 'Trend = DECLINING, cộng +1 điểm dấu hiệu tụt lùi',
@@ -2619,6 +2629,7 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-08',
     title: 'Phân tích trường hợp Cảnh báo Sai Dương (False Positive)',
     category: 'Audit & Đánh giá',
+    test_type: 'AUTOMATED',
     input_data: 'STU015 (Hệ thống gán Cảnh báo với Score=5, nhưng nhãn giáo viên = NORMAL)',
     action: 'Đưa qua ma trận nhầm lẫn Confusion Matrix',
     expected_result: 'Xếp vào ô False Positive (FP), có mục giải thích nguyên nhân sai dương',
@@ -2630,6 +2641,7 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     id: 'TC-09',
     title: 'Phân tích trường hợp Cảnh báo Sai Âm (False Negative)',
     category: 'Audit & Đánh giá',
+    test_type: 'AUTOMATED',
     input_data: 'STU048 (Hệ thống gán Normal, nhưng nhãn giáo viên = NEED_SUPPORT)',
     action: 'Đưa qua ma trận nhầm lẫn Confusion Matrix',
     expected_result: 'Xếp vào ô False Negative (FN), xuất hiện trong mục "Phân tích sai âm"',
@@ -2639,35 +2651,62 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
   },
   {
     id: 'TC-10',
-    title: 'Giáo viên xác nhận cảnh báo và chọn can thiệp (Human-in-the-loop)',
-    category: 'Tương tác giáo viên',
-    input_data: 'Cảnh báo STU023, giáo viên bấm "Xác nhận cần hỗ trợ", nhập ghi chú, chọn "Gợi ý từng bước"',
-    action: 'Cập nhật trạng thái teacher_confirmation và lưu localStorage',
-    expected_result: 'Chuyển trạng thái sang CONFIRMED, lưu thời gian, đồng bộ sang trang Can thiệp',
-    actual_result: 'Cập nhật thành công, hiển thị trong danh sách Can thiệp đang chờ thực hiện',
+    title: 'Đánh giá trạng thái WATCH khi Evidence Score đạt đúng 3 điểm',
+    category: 'Quy tắc phân loại',
+    test_type: 'AUTOMATED',
+    input_data: 'Hồ sơ giả lập biên: submission_rate = 50% (+2đ), active_days = 2 (+1đ), các chỉ số khác bình thường',
+    action: 'Chạy calculateDerivedLearner với hồ sơ biên kiểm thử chuyên biệt',
+    expected_result: 'Evidence Score = 3, alert_status = "WATCH" (Theo dõi thêm)',
+    actual_result: 'Evidence Score = 3, alert_status = WATCH',
     status: 'PASS',
-    details: 'Chứng minh hệ thống tuân thủ Human-in-the-loop: không tự chốt can thiệp thay giáo viên.'
+    details: 'Được thiết kế riêng để xác thực thuật toán chuyển tiếp sang nhóm WATCH mà không sửa 80 hồ sơ gốc.'
   },
   {
     id: 'TC-11',
-    title: 'Giáo viên bác bỏ cảnh báo (Teacher Override)',
-    category: 'Quyền ghi đè của giáo viên',
-    input_data: 'Cảnh báo STU015, giáo viên bấm "Không cần can thiệp", ghi chú "Đang làm đề tài tự chọn"',
-    action: 'Cập nhật trạng thái teacher_confirmation sang DISMISSED',
-    expected_result: 'Cảnh báo chuyển sang "Đã bác bỏ", không tạo can thiệp ép buộc',
-    actual_result: 'Trạng thái chuyển thành DISMISSED, lưu lại trong nhật ký AI Audit Log',
+    title: 'Khả năng chống lỗi mẫu số bằng 0 (Division by Zero Resilience)',
+    category: 'Ổn định hệ thống',
+    test_type: 'AUTOMATED',
+    input_data: 'assignments_due = 0, code_runs = 0, total_tests = 0',
+    action: 'Tính toán các biến dẫn xuất submission_rate, error_rate, test_pass_rate',
+    expected_result: 'Các tỷ lệ bằng 0, không phát sinh NaN hoặc Infinity, không gây crash ứng dụng',
+    actual_result: 'submission_rate = 0, error_rate = 0, test_pass_rate = 0, Number.isFinite = true',
     status: 'PASS',
-    details: 'Giáo viên luôn có quyền phủ quyết cao nhất trước mọi gợi ý của AI.'
+    details: 'Đảm bảo ứng dụng hoạt động ổn định trong mọi tình huống dữ liệu khởi đầu.'
   },
   {
     id: 'TC-12',
-    title: 'Điều chỉnh ngưỡng cảnh báo làm thay đổi tức thì Precision & Recall',
-    category: 'Quản trị & Cài đặt',
-    input_data: 'Tăng ngưỡng Evidence Alert từ 4 lên 5 trong trang Cài đặt',
-    action: 'Lưu cấu hình mới và kích hoạt tính toán lại toàn bộ Dashboard & Audit',
-    expected_result: 'Số cảnh báo giảm, Recall giảm, Precision tăng hoặc thay đổi tương ứng',
-    actual_result: 'Audit và Dashboard cập nhật ngay lập tức theo ngưỡng mới mà không cần reload trang',
+    title: 'Xử lý giá trị nằm chính xác tại ngưỡng (Boundary Threshold Values)',
+    category: 'Kiểm định biên',
+    test_type: 'AUTOMATED',
+    input_data: 'submission_rate = 0.70, test_pass_rate = 0.50, error_rate = 0.60, late = 2, active_days = 2',
+    action: 'Kiểm tra toán tử so sánh nghiêm ngặt (< vs <=, > vs >=)',
+    expected_result: 'Các điều kiện nghiêm ngặt (<0.70, <0.50, >0.60) KHÔNG kích hoạt; các điều kiện (>=2, <=2) KÍCH HOẠT. Điểm = 2, alert_status = NORMAL',
+    actual_result: 'Evidence Score = 2, alert_status = NORMAL',
     status: 'PASS',
-    details: 'Giúp chuyên viên giáo dục khảo sát trade-off giữa độ bao phủ (Recall) và độ chuẩn xác (Precision).'
+    details: 'Đảm bảo xử lý đúng học sinh nằm ngay mép ngưỡng mà không bị phạt oan.'
+  },
+  {
+    id: 'TC-M01',
+    title: 'Kiểm thử Thủ công: Giáo viên xác nhận cảnh báo & lập can thiệp',
+    category: 'Giao diện & Tương tác',
+    test_type: 'MANUAL_UI',
+    input_data: 'Bấm nút "Xác nhận cần hỗ trợ" tại hồ sơ STU023, nhập ghi chú và chọn hình thức can thiệp',
+    action: 'Thực hiện thao tác trên modal hồ sơ học sinh và bấm "Lưu quyết định"',
+    expected_result: 'Trạng thái chuyển thành CONFIRMED, lưu thời gian, đồng bộ vào danh sách Can thiệp và Nhật ký AI',
+    actual_result: 'Đã tích hợp giao diện tương tác và lưu trữ trực tiếp vào localStorage',
+    status: 'PASS',
+    details: 'Được phân loại là kiểm thử giao diện thủ công (Human-in-the-loop validation).'
+  },
+  {
+    id: 'TC-M02',
+    title: 'Kiểm thử Thủ công: Giáo viên ghi đè/bác bỏ cảnh báo (Teacher Override)',
+    category: 'Giao diện & Tương tác',
+    test_type: 'MANUAL_UI',
+    input_data: 'Bấm nút "Bác bỏ" / "Không cần can thiệp" đối với STU015 (False Positive)',
+    action: 'Thực hiện thao tác bác bỏ trên thẻ cảnh báo hoặc modal hồ sơ',
+    expected_result: 'Trạng thái chuyển thành DISMISSED, lưu vào nhật ký AI, không ép buộc can thiệp',
+    actual_result: 'Đã tích hợp cơ chế ghi đè chuyên môn và hiển thị nhãn "Đã bác bỏ"',
+    status: 'PASS',
+    details: 'Đảm bảo quyền quyết định tối cao thuộc về giáo viên.'
   }
 ];

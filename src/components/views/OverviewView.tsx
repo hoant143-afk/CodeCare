@@ -10,6 +10,8 @@ import {
   ArrowRight,
   Sparkles,
   Info,
+  Calendar,
+  AlertCircle,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -32,6 +34,7 @@ import { LearnerDerived, TeacherConfirmation } from '../../types';
 
 interface OverviewViewProps {
   learners: LearnerDerived[];
+  selectedWeek: number;
   onSelectLearner: (learnerId: string) => void;
   onNavigateToTab: (tab: any) => void;
   onReviewAlert: (learnerId: string, decision: TeacherConfirmation, notes?: string) => void;
@@ -39,15 +42,51 @@ interface OverviewViewProps {
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
   learners,
+  selectedWeek,
   onSelectLearner,
   onNavigateToTab,
   onReviewAlert,
 }) => {
+  const isDiagnosticWeek = selectedWeek === 6;
+  const isPastWeek = selectedWeek < 6;
+  const isFutureWeek = selectedWeek > 6;
+
   // Aggregate KPIs
   const totalLearners = learners.length;
   const alertCount = learners.filter((l) => l.alert_status === 'ALERT').length;
   const watchCount = learners.filter((l) => l.alert_status === 'WATCH').length;
   const normalCount = learners.filter((l) => l.alert_status === 'NORMAL').length;
+
+  // Weekly specific metrics if past week
+  let weekAvgPassRate = 0;
+  let weekAvgRuns = 0;
+  let weekAvgErrors = 0;
+  let weekAvgSubmitted = 0;
+
+  if (isPastWeek && totalLearners > 0) {
+    let sumPass = 0;
+    let sumRuns = 0;
+    let sumErrors = 0;
+    let sumSubmitted = 0;
+    let count = 0;
+
+    for (const l of learners) {
+      const hist = l.weekly_history.find((h) => h.week === selectedWeek);
+      if (hist) {
+        sumPass += hist.test_pass_rate;
+        sumRuns += hist.code_runs;
+        sumErrors += hist.errors;
+        sumSubmitted += hist.assignments_submitted;
+        count++;
+      }
+    }
+    if (count > 0) {
+      weekAvgPassRate = sumPass / count;
+      weekAvgRuns = Number((sumRuns / count).toFixed(1));
+      weekAvgErrors = Number((sumErrors / count).toFixed(1));
+      weekAvgSubmitted = Number((sumSubmitted / count).toFixed(1));
+    }
+  }
 
   const avgSubmissionRate =
     totalLearners > 0
@@ -83,12 +122,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     }
 
     const avgPass = count > 0 ? (sumPass / count) * 100 : 0;
-    const avgSub = count > 0 ? (sumSubmitted / count) * 100 : 0; // percent of week assignment completed
+    const avgSub = count > 0 ? (sumSubmitted / count) * 100 : 0;
 
     return {
       week: `Tuần ${wk}`,
       testPassRate: Number(avgPass.toFixed(1)),
-      submissionRate: Number(Math.min(100, (avgSub * 0.9 + 10)).toFixed(1)),
+      submissionRate: Number(Math.min(100, avgSub * 0.9 + 10).toFixed(1)),
       avgRuns: count > 0 ? Number((sumRuns / count).toFixed(1)) : 0,
       avgErrors: count > 0 ? Number((sumErrors / count).toFixed(1)) : 0,
     };
@@ -147,95 +186,155 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                 Tổng quan Phân tích Học tập & Cảnh báo Sớm
               </h1>
-              <span className="text-xs bg-sky-100 text-sky-800 font-semibold px-2 py-0.5 rounded">
-                Tuần 6
+              <span className="text-xs bg-sky-100 text-sky-800 font-semibold px-2.5 py-0.5 rounded">
+                Đang chọn: Tuần {selectedWeek}
               </span>
             </div>
             <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
               CodeCare hỗ trợ giáo viên phát hiện sớm các dấu hiệu người học gặp khó khăn trong quá trình học lập trình dựa trên dữ liệu học tập từ LMS và môi trường thực hành. Mọi cảnh báo mang tính gợi ý giải thích được và cần giáo viên xác nhận chuyên môn trước khi can thiệp.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => onNavigateToTab('alerts')}
-              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 transition-colors flex items-center gap-1.5 shadow-2xs"
-            >
-              <span>Xem {alertCount} cảnh báo cần xử lý</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          {isDiagnosticWeek && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => onNavigateToTab('alerts')}
+                className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <span>Xem {alertCount} cảnh báo cần xử lý</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 6 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
-        {/* KPI 1 */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-xs font-medium text-slate-500 mb-1">Tổng người học</div>
-          <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
-            {totalLearners}
+      {/* Week specific information notification */}
+      {isPastWeek && (
+        <div className="p-4 bg-sky-50 border border-sky-200 rounded-xl text-xs text-sky-950 space-y-2 animate-in fade-in">
+          <div className="flex items-center gap-2 font-bold text-sm text-sky-900">
+            <Info className="w-4 h-4 text-sky-700" />
+            <span>Chế độ Xem Lịch sử: Số liệu Hoạt động Thực hành Tuần {selectedWeek}</span>
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">Đã ẩn danh STU001 - STU080</div>
+          <p className="text-sky-800 leading-relaxed">
+            Dữ liệu dưới đây hiển thị chính xác các chỉ số thực hành ghi nhận riêng trong <strong>Tuần {selectedWeek}</strong> (tỷ lệ test pass, số lần chạy code, số lỗi).
+            Theo quy tắc sư phạm, hệ thống <strong>không tính suy luận cảnh báo quá khứ</strong> khi lịch sử chưa đủ 18 biến đầu vào đầy đủ. Mốc suy luận chẩn đoán sớm toàn diện đang được kích hoạt tại <strong>Tuần 6</strong>.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            <div className="bg-white p-2.5 rounded-lg border border-sky-200">
+              <span className="text-[11px] text-slate-500 block">Test Pass Tuần {selectedWeek}</span>
+              <span className="text-lg font-bold font-mono text-sky-900">{(weekAvgPassRate * 100).toFixed(1)}%</span>
+            </div>
+            <div className="bg-white p-2.5 rounded-lg border border-sky-200">
+              <span className="text-[11px] text-slate-500 block">Số lần chạy TB / SV</span>
+              <span className="text-lg font-bold font-mono text-sky-900">{weekAvgRuns} lần</span>
+            </div>
+            <div className="bg-white p-2.5 rounded-lg border border-sky-200">
+              <span className="text-[11px] text-slate-500 block">Số lỗi TB / SV</span>
+              <span className="text-lg font-bold font-mono text-rose-700">{weekAvgErrors} lỗi</span>
+            </div>
+            <div className="bg-white p-2.5 rounded-lg border border-sky-200">
+              <span className="text-[11px] text-slate-500 block">Bài nộp hoàn thành</span>
+              <span className="text-lg font-bold font-mono text-emerald-700">{weekAvgSubmitted} bài</span>
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* KPI 2 */}
-        <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/20 shadow-2xs">
-          <div className="text-xs font-medium text-rose-700 mb-1 flex items-center justify-between">
-            <span>Có dấu hiệu cần hỗ trợ</span>
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-          </div>
-          <div className="text-2xl font-bold text-rose-700 font-mono tabular-nums">
-            {alertCount}
-          </div>
-          <div className="text-[11px] text-rose-700/80 mt-1">
-            {Math.round((alertCount / totalLearners) * 100)}% tổng số người học
+      {isFutureWeek && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-start gap-3 animate-in fade-in">
+          <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h3 className="font-bold text-sm text-amber-900">
+              Chưa có dữ liệu cho Tuần {selectedWeek}
+            </h3>
+            <p className="text-amber-800">
+              Khóa học lập trình hiện đang ở tiến độ <strong>Tuần 6</strong>. Dữ liệu cho các tuần tiếp theo sẽ được tự động đồng bộ khi buổi lab tương ứng diễn ra.
+            </p>
           </div>
         </div>
+      )}
 
-        {/* KPI 3 */}
-        <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
-          <div className="text-xs font-medium text-amber-700 mb-1 flex items-center justify-between">
-            <span>Theo dõi thêm</span>
-            <Eye className="w-3.5 h-3.5 text-amber-600" />
+      {/* 6 KPI Cards (Diagnostic week or full view) */}
+      {!isFutureWeek && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+          {/* KPI 1 */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="text-xs font-medium text-slate-500 mb-1">Tổng người học</div>
+            <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+              {totalLearners}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">Đã ẩn danh STU001 - STU080</div>
           </div>
-          <div className="text-2xl font-bold text-amber-700 font-mono tabular-nums">
-            {watchCount}
-          </div>
-          <div className="text-[11px] text-amber-700/80 mt-1">
-            Score = 3 (chớm xuất hiện dấu hiệu)
-          </div>
-        </div>
 
-        {/* KPI 4 */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-xs font-medium text-slate-500 mb-1">Tỷ lệ nộp bài TB</div>
-          <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
-            {Math.round(avgSubmissionRate * 100)}%
+          {/* KPI 2 */}
+          <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/20 shadow-2xs">
+            <div className="text-xs font-medium text-rose-700 mb-1 flex items-center justify-between">
+              <span>Có dấu hiệu cần hỗ trợ</span>
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+            </div>
+            <div className="text-2xl font-bold text-rose-700 font-mono tabular-nums">
+              {isPastWeek ? 'N/A' : alertCount}
+            </div>
+            <div className="text-[11px] text-rose-700/80 mt-1">
+              {isPastWeek ? 'Chẩn đoán tại Tuần 6' : `${Math.round((alertCount / totalLearners) * 100)}% tổng số người học`}
+            </div>
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">Ngưỡng tối thiểu: 70%</div>
-        </div>
 
-        {/* KPI 5 */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-xs font-medium text-slate-500 mb-1">Test case đạt TB</div>
-          <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
-            {Math.round(avgTestPassRate * 100)}%
+          {/* KPI 3 */}
+          <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
+            <div className="text-xs font-medium text-amber-700 mb-1 flex items-center justify-between">
+              <span>Theo dõi thêm</span>
+              <Eye className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <div className="text-2xl font-bold text-amber-700 font-mono tabular-nums">
+              {isPastWeek ? 'N/A' : watchCount}
+            </div>
+            <div className="text-[11px] text-amber-700/80 mt-1">
+              {isPastWeek ? 'Chẩn đoán tại Tuần 6' : 'Score = 3 (chớm xuất hiện)'}
+            </div>
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">Ngưỡng tối thiểu: 50%</div>
-        </div>
 
-        {/* KPI 6 */}
-        <div className="bg-white p-4 rounded-xl border border-sky-200 bg-sky-50/20 shadow-2xs">
-          <div className="text-xs font-medium text-sky-800 mb-1 flex items-center justify-between">
-            <span>Cảnh báo chưa xem</span>
-            <span className="w-2 h-2 rounded-full bg-sky-600" />
+          {/* KPI 4 */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="text-xs font-medium text-slate-500 mb-1">
+              {isPastWeek ? `Nộp bài T.${selectedWeek}` : 'Tỷ lệ nộp bài tích lũy'}
+            </div>
+            <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+              {isPastWeek ? `${weekAvgSubmitted} bài` : `${Math.round(avgSubmissionRate * 100)}%`}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              {isPastWeek ? `Giao tuần ${selectedWeek}` : 'Ngưỡng tối thiểu: 70%'}
+            </div>
           </div>
-          <div className="text-2xl font-bold text-sky-800 font-mono tabular-nums">
-            {unreviewedCount}
+
+          {/* KPI 5 */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="text-xs font-medium text-slate-500 mb-1">
+              {isPastWeek ? `Test pass T.${selectedWeek}` : 'Test case đạt tích lũy'}
+            </div>
+            <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+              {isPastWeek ? `${(weekAvgPassRate * 100).toFixed(0)}%` : `${Math.round(avgTestPassRate * 100)}%`}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              {isPastWeek ? `Thực tế tuần ${selectedWeek}` : 'Ngưỡng tối thiểu: 50%'}
+            </div>
           </div>
-          <div className="text-[11px] text-sky-700 mt-1">Đang chờ GV xác nhận</div>
+
+          {/* KPI 6 */}
+          <div className="bg-white p-4 rounded-xl border border-sky-200 bg-sky-50/20 shadow-2xs">
+            <div className="text-xs font-medium text-sky-800 mb-1 flex items-center justify-between">
+              <span>Cảnh báo chưa xem</span>
+              <span className="w-2 h-2 rounded-full bg-sky-600" />
+            </div>
+            <div className="text-2xl font-bold text-sky-800 font-mono tabular-nums">
+              {isPastWeek ? '0' : unreviewedCount}
+            </div>
+            <div className="text-[11px] text-sky-700 mt-1">
+              {isPastWeek ? 'Xem xét tại tuần 6' : 'Đang chờ GV xác nhận'}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Grid of 4 Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -409,107 +508,109 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       </div>
 
       {/* Section: 5 Cảnh báo gần đây */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
-              <span>Cảnh báo gần đây cần giáo viên xem xét (5 cảnh báo mới nhất)</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Mỗi cảnh báo đều kèm bằng chứng cụ thể và gợi ý định hướng can thiệp
-            </p>
-          </div>
-          <button
-            onClick={() => onNavigateToTab('alerts')}
-            className="text-xs font-semibold text-sky-800 hover:text-sky-950 flex items-center gap-1"
-          >
-            Xem toàn bộ cảnh báo ({alertCount})
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="divide-y divide-slate-100">
-          {recentAlerts.map((l) => (
-            <div
-              key={l.learner_id}
-              className="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 p-2 rounded-lg transition-colors"
+      {isDiagnosticWeek && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                <span>Cảnh báo gần đây cần giáo viên xem xét (5 cảnh báo mới nhất)</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Mỗi cảnh báo đều kèm bằng chứng cụ thể và gợi ý định hướng can thiệp
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigateToTab('alerts')}
+              className="text-xs font-semibold text-sky-800 hover:text-sky-950 flex items-center gap-1 cursor-pointer"
             >
-              <div className="space-y-1.5 flex-1">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
+              Xem toàn bộ cảnh báo ({alertCount})
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {recentAlerts.map((l) => (
+              <div
+                key={l.learner_id}
+                className="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 p-2 rounded-lg transition-colors"
+              >
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      onClick={() => onSelectLearner(l.learner_id)}
+                      className="font-mono font-bold text-sky-900 hover:underline text-sm cursor-pointer"
+                    >
+                      {l.learner_id}
+                    </button>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-slate-600 font-medium">{l.class_name}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-900 border border-rose-300">
+                      Evidence Score: {l.evidence_score}
+                    </span>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-slate-500">
+                      Trạng thái GV:{' '}
+                      {l.teacher_confirmation === 'CONFIRMED' ? (
+                        <span className="text-emerald-700 font-medium">Đã xác nhận</span>
+                      ) : l.teacher_confirmation === 'WATCHING' ? (
+                        <span className="text-amber-700 font-medium">Đang theo dõi</span>
+                      ) : l.teacher_confirmation === 'DISMISSED' ? (
+                        <span className="text-slate-600 font-medium">Đã bác bỏ</span>
+                      ) : (
+                        <span className="text-rose-700 font-medium">Chưa xem xét</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Primary explainable reasons */}
+                  <div className="text-xs text-slate-700 space-y-0.5">
+                    <div className="font-medium text-slate-800">Lý do hệ thống đề xuất:</div>
+                    <ul className="list-disc list-inside space-y-0.5 text-slate-600 pl-1 text-[11px]">
+                      {l.alert_reasons.slice(0, 3).map((r, idx) => (
+                        <li key={idx}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => onSelectLearner(l.learner_id)}
-                    className="font-mono font-bold text-sky-900 hover:underline text-sm"
+                    className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                   >
-                    {l.learner_id}
+                    Xem hồ sơ
                   </button>
-                  <span className="text-slate-400">·</span>
-                  <span className="text-slate-600 font-medium">{l.class_name}</span>
-                  <span className="text-slate-400">·</span>
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-900 border border-rose-300">
-                    Evidence Score: {l.evidence_score}
-                  </span>
-                  <span className="text-slate-400">·</span>
-                  <span className="text-slate-500">
-                    Trạng thái GV:{' '}
-                    {l.teacher_confirmation === 'CONFIRMED' ? (
-                      <span className="text-emerald-700 font-medium">Đã xác nhận</span>
-                    ) : l.teacher_confirmation === 'WATCHING' ? (
-                      <span className="text-amber-700 font-medium">Đang theo dõi</span>
-                    ) : l.teacher_confirmation === 'DISMISSED' ? (
-                      <span className="text-slate-600 font-medium">Đã bác bỏ</span>
-                    ) : (
-                      <span className="text-rose-700 font-medium">Chưa xem xét</span>
-                    )}
-                  </span>
-                </div>
-
-                {/* Primary explainable reasons */}
-                <div className="text-xs text-slate-700 space-y-0.5">
-                  <div className="font-medium text-slate-800">Lý do hệ thống đề xuất:</div>
-                  <ul className="list-disc list-inside space-y-0.5 text-slate-600 pl-1 text-[11px]">
-                    {l.alert_reasons.slice(0, 3).map((r, idx) => (
-                      <li key={idx}>{r}</li>
-                    ))}
-                  </ul>
+                  {l.teacher_confirmation === 'UNREVIEWED' && (
+                    <>
+                      <button
+                        onClick={() => onReviewAlert(l.learner_id, 'CONFIRMED')}
+                        className="px-2.5 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Xác nhận cần hỗ trợ
+                      </button>
+                      <button
+                        onClick={() => onReviewAlert(l.learner_id, 'WATCHING')}
+                        className="px-2.5 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Theo dõi thêm
+                      </button>
+                      <button
+                        onClick={() => onReviewAlert(l.learner_id, 'DISMISSED')}
+                        className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Bác bỏ
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => onSelectLearner(l.learner_id)}
-                  className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  Xem hồ sơ
-                </button>
-                {l.teacher_confirmation === 'UNREVIEWED' && (
-                  <>
-                    <button
-                      onClick={() => onReviewAlert(l.learner_id, 'CONFIRMED')}
-                      className="px-2.5 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors"
-                    >
-                      Xác nhận cần hỗ trợ
-                    </button>
-                    <button
-                      onClick={() => onReviewAlert(l.learner_id, 'WATCHING')}
-                      className="px-2.5 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors"
-                    >
-                      Theo dõi thêm
-                    </button>
-                    <button
-                      onClick={() => onReviewAlert(l.learner_id, 'DISMISSED')}
-                      className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors"
-                    >
-                      Bác bỏ
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

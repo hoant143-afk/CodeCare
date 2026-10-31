@@ -11,12 +11,17 @@ import {
   AlertCircle,
   HelpCircle,
   ChevronRight,
+  Download,
+  Ban,
+  Filter,
 } from 'lucide-react';
 import {
   LearnerDerived,
   InterventionType,
   InterventionStatus,
+  SupportSituation,
 } from '../../types';
+import { exportInterventionsToCSV } from '../../services/exportService';
 
 interface InterventionsViewProps {
   learners: LearnerDerived[];
@@ -38,7 +43,7 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
 }) => {
   // Only students with confirmed support or with active intervention
   const confirmedLearners = learners.filter(
-    (l) => l.teacher_confirmation === 'CONFIRMED' || l.intervention_status !== 'NONE'
+    (l) => l.teacher_confirmation === 'CONFIRMED' || (l.intervention_status && l.intervention_status !== 'NONE')
   );
 
   const [activeTab, setActiveTab] = useState<'tracker' | 'playbook'>('tracker');
@@ -50,6 +55,7 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
   const [formDate, setFormDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [formNotes, setFormNotes] = useState<string>('');
   const [formOutcome, setFormOutcome] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | InterventionStatus>('ALL');
 
   const openEdit = (l: LearnerDerived) => {
     setSelectedStudentForEdit(l);
@@ -73,9 +79,35 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
     setSelectedStudentForEdit(null);
   };
 
+  const handleStopQuick = (l: LearnerDerived) => {
+    const reason = window.prompt(
+      `Nhập lý do dừng can thiệp cho học sinh ${l.learner_id} (Ví dụ: Học sinh đã đạt kết quả ổn định, chuyển nhóm học tập...):`
+    );
+    if (reason !== null) {
+      onUpdateIntervention(
+        l.learner_id,
+        l.intervention_type || 'Hỗ trợ trực tiếp',
+        'STOPPED',
+        l.intervention_date || new Date().toISOString().split('T')[0],
+        l.teacher_notes ? `${l.teacher_notes} | [Lý do dừng: ${reason}]` : `[Lý do dừng: ${reason}]`,
+        reason || 'Đã dừng can thiệp'
+      );
+    }
+  };
+
+  const handleExportCSV = () => {
+    exportInterventionsToCSV(confirmedLearners);
+  };
+
+  const filteredConfirmed = confirmedLearners.filter((l) => {
+    if (statusFilter !== 'ALL' && l.intervention_status !== statusFilter) return false;
+    return true;
+  });
+
   const pendingCount = confirmedLearners.filter((l) => l.intervention_status === 'PENDING').length;
   const inProgressCount = confirmedLearners.filter((l) => l.intervention_status === 'IN_PROGRESS').length;
   const completedCount = confirmedLearners.filter((l) => l.intervention_status === 'COMPLETED').length;
+  const stoppedCount = confirmedLearners.filter((l) => l.intervention_status === 'STOPPED').length;
 
   return (
     <div className="space-y-5">
@@ -87,87 +119,157 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
             <span>Kế hoạch & Quản lý Can thiệp Sư phạm</span>
           </h1>
           <p className="text-xs text-slate-500">
-            Dành riêng cho những người học đã được giáo viên xác nhận cần hỗ trợ. Theo dõi tiến độ và hiệu quả can thiệp.
+            Dành riêng cho những người học đã được giáo viên xác nhận cần hỗ trợ. Theo dõi tiến độ, 3 nhóm tình huống sư phạm và dừng can thiệp khi đạt mục tiêu.
           </p>
         </div>
 
-        {/* View Switcher */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs self-start">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setActiveTab('tracker')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
-              activeTab === 'tracker'
-                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={handleExportCSV}
+            className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
           >
-            Danh sách can thiệp ({confirmedLearners.length})
+            <Download className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Xuất danh sách (CSV)</span>
           </button>
-          <button
-            onClick={() => setActiveTab('playbook')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
-              activeTab === 'playbook'
-                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Sổ tay 5 Kịch bản Sư phạm
-          </button>
+
+          {/* View Switcher */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs">
+            <button
+              onClick={() => setActiveTab('tracker')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+                activeTab === 'tracker'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Danh sách ({confirmedLearners.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('playbook')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+                activeTab === 'playbook'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Sổ tay 5 Kịch bản Sư phạm
+            </button>
+          </div>
         </div>
       </div>
 
       {activeTab === 'tracker' ? (
         <>
           {/* Status summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
               <div>
-                <span className="text-xs text-slate-500 block font-medium">Chưa thực hiện</span>
+                <span className="text-[11px] text-slate-500 block font-medium uppercase">Chưa thực hiện</span>
                 <span className="text-2xl font-bold text-slate-800 font-mono tabular-nums">
                   {pendingCount}
                 </span>
-                <span className="text-[11px] text-slate-400 block">Đang lên lịch hỗ trợ</span>
+                <span className="text-[10px] text-slate-400 block">Đang lên lịch hỗ trợ</span>
               </div>
-              <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
-                <Clock className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
+                <Clock className="w-4 h-4" />
               </div>
             </div>
 
-            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
               <div>
-                <span className="text-xs text-slate-500 block font-medium">Đang thực hiện</span>
+                <span className="text-[11px] text-slate-500 block font-medium uppercase">Đang thực hiện</span>
                 <span className="text-2xl font-bold text-sky-800 font-mono tabular-nums">
                   {inProgressCount}
                 </span>
-                <span className="text-[11px] text-slate-400 block">Đang hướng dẫn / giao bài</span>
+                <span className="text-[10px] text-slate-400 block">Đang hướng dẫn / lab</span>
               </div>
-              <div className="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center font-bold">
-                <HeartHandshake className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center font-bold">
+                <HeartHandshake className="w-4 h-4" />
               </div>
             </div>
 
-            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
               <div>
-                <span className="text-xs text-slate-500 block font-medium">Đã hoàn thành</span>
+                <span className="text-[11px] text-slate-500 block font-medium uppercase">Đã hoàn thành</span>
                 <span className="text-2xl font-bold text-emerald-700 font-mono tabular-nums">
                   {completedCount}
                 </span>
-                <span className="text-[11px] text-slate-400 block">Đã ghi nhận kết quả tiến bộ</span>
+                <span className="text-[10px] text-slate-400 block">Tiến bộ được ghi nhận</span>
               </div>
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                <CheckCircle2 className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
+
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] text-slate-500 block font-medium uppercase">Đã dừng can thiệp</span>
+                <span className="text-2xl font-bold text-slate-600 font-mono tabular-nums">
+                  {stoppedCount}
+                </span>
+                <span className="text-[10px] text-slate-400 block">Đã hoàn tất / chuyển hướng</span>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
+                <Ban className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-500 font-medium flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5" /> Lọc trạng thái:
+            </span>
+            <button
+              onClick={() => setStatusFilter('ALL')}
+              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                statusFilter === 'ALL' ? 'bg-sky-800 text-white font-semibold' : 'bg-white border text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Tất cả ({confirmedLearners.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('PENDING')}
+              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                statusFilter === 'PENDING' ? 'bg-amber-700 text-white font-semibold' : 'bg-white border text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Chưa thực hiện ({pendingCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter('IN_PROGRESS')}
+              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                statusFilter === 'IN_PROGRESS' ? 'bg-sky-700 text-white font-semibold' : 'bg-white border text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Đang thực hiện ({inProgressCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter('COMPLETED')}
+              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                statusFilter === 'COMPLETED' ? 'bg-emerald-700 text-white font-semibold' : 'bg-white border text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Hoàn thành ({completedCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter('STOPPED')}
+              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                statusFilter === 'STOPPED' ? 'bg-slate-700 text-white font-semibold' : 'bg-white border text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Đã dừng ({stoppedCount})
+            </button>
           </div>
 
           {/* Interventions Table */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
             <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Bảng theo dõi kế hoạch can thiệp ({confirmedLearners.length} hồ sơ đã duyệt)
+                Bảng theo dõi kế hoạch can thiệp ({filteredConfirmed.length} hồ sơ)
               </h2>
               <span className="text-xs text-slate-500">
-                Nhấn "Cập nhật" để ghi chú kết quả hoặc thay đổi trạng thái
+                Nhấn "Cập nhật" để ghi chú kết quả hoặc "Dừng" khi hoàn tất
               </span>
             </div>
 
@@ -177,34 +279,40 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
                   <tr>
                     <th className="py-3 px-3.5">Mã người học</th>
                     <th className="py-3 px-3">Lớp</th>
-                    <th className="py-3 px-3">Loại can thiệp</th>
+                    <th className="py-3 px-3">Tình huống cần hỗ trợ</th>
+                    <th className="py-3 px-3">Hình thức</th>
                     <th className="py-3 px-3">Trạng thái</th>
-                    <th className="py-3 px-3">Ngày hẹn / thực hiện</th>
-                    <th className="py-3 px-3">Ghi chú & Hướng tiếp cận</th>
-                    <th className="py-3 px-3">Kết quả sau can thiệp</th>
+                    <th className="py-3 px-3">Thời gian</th>
+                    <th className="py-3 px-3">Ghi chú & Định hướng</th>
+                    <th className="py-3 px-3">Kết quả ghi nhận</th>
                     <th className="py-3 px-3.5 text-center">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {confirmedLearners.length === 0 ? (
+                  {filteredConfirmed.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-slate-400">
-                        Chưa có người học nào được giáo viên xác nhận can thiệp. Vui lòng xem danh sách cảnh báo.
+                      <td colSpan={9} className="py-10 text-center text-slate-400">
+                        Không có người học nào trong bộ lọc này.
                       </td>
                     </tr>
                   ) : (
-                    confirmedLearners.map((l) => (
+                    filteredConfirmed.map((l) => (
                       <tr key={l.learner_id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3 px-3.5 font-mono font-bold text-sky-900">
                           <button
                             onClick={() => onSelectLearner(l.learner_id)}
-                            className="hover:underline"
+                            className="hover:underline cursor-pointer"
                           >
                             {l.learner_id}
                           </button>
                         </td>
                         <td className="py-3 px-3 text-slate-600 font-medium">
                           {l.class_name}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-200 block truncate max-w-[200px]" title={l.intervention_situation}>
+                            {l.intervention_situation || 'Hỗ trợ năng lực lập trình'}
+                          </span>
                         </td>
                         <td className="py-3 px-3 font-semibold text-slate-800">
                           {l.intervention_type || 'Hỗ trợ trực tiếp'}
@@ -218,6 +326,10 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
                             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-100 text-sky-800 border border-sky-300">
                               Đang thực hiện
                             </span>
+                          ) : l.intervention_status === 'STOPPED' ? (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                              Đã dừng
+                            </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
                               Chưa thực hiện
@@ -227,10 +339,10 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
                         <td className="py-3 px-3 font-mono text-slate-600">
                           {l.intervention_date || 'Chưa đặt'}
                         </td>
-                        <td className="py-3 px-3 max-w-xs text-slate-600 truncate">
+                        <td className="py-3 px-3 max-w-xs text-slate-600 truncate" title={l.teacher_notes}>
                           {l.teacher_notes || 'Chưa có ghi chú'}
                         </td>
-                        <td className="py-3 px-3 max-w-xs text-slate-700 font-medium truncate">
+                        <td className="py-3 px-3 max-w-xs text-slate-700 font-medium truncate" title={l.intervention_outcome}>
                           {l.intervention_outcome ? (
                             <span className="text-emerald-700">{l.intervention_outcome}</span>
                           ) : (
@@ -238,12 +350,23 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
                           )}
                         </td>
                         <td className="py-3 px-3.5 text-center">
-                          <button
-                            onClick={() => openEdit(l)}
-                            className="px-2.5 py-1 text-[11px] font-semibold rounded bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-200 transition-colors"
-                          >
-                            Cập nhật
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => openEdit(l)}
+                              className="px-2.5 py-1 text-[11px] font-semibold rounded bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-200 transition cursor-pointer"
+                            >
+                              Cập nhật
+                            </button>
+                            {l.intervention_status !== 'STOPPED' && (
+                              <button
+                                onClick={() => handleStopQuick(l)}
+                                className="px-2 py-1 text-[11px] font-semibold rounded bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
+                                title="Dừng can thiệp khi đã đạt mục tiêu hoặc chuyển hướng"
+                              >
+                                Dừng
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -398,12 +521,12 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
                   Cập nhật can thiệp: {selectedStudentForEdit.learner_id}
                 </h3>
                 <span className="text-xs text-slate-500">
-                  Lớp: {selectedStudentForEdit.class_name}
+                  Lớp: {selectedStudentForEdit.class_name} · Tình huống: {selectedStudentForEdit.intervention_situation || 'Học tập lập trình'}
                 </span>
               </div>
               <button
                 onClick={() => setSelectedStudentForEdit(null)}
-                className="text-slate-400 hover:text-slate-700 p-1"
+                className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -441,6 +564,7 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
                   <option value="PENDING">Chưa thực hiện</option>
                   <option value="IN_PROGRESS">Đang thực hiện</option>
                   <option value="COMPLETED">Hoàn thành</option>
+                  <option value="STOPPED">Đã dừng can thiệp</option>
                 </select>
               </div>
 
@@ -486,13 +610,13 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setSelectedStudentForEdit(null)}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium cursor-pointer"
               >
                 Hủy
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-1.5 rounded-lg bg-sky-800 hover:bg-sky-900 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs"
+                className="px-4 py-1.5 rounded-lg bg-sky-800 hover:bg-sky-900 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Lưu thông tin</span>

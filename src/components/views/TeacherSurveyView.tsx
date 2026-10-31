@@ -7,12 +7,17 @@ import {
   MessageSquare,
   Users,
   Award,
+  Download,
+  Info,
+  BadgeAlert,
+  Sparkles,
 } from 'lucide-react';
 import { TeacherSurveyResponse } from '../../types';
 import { StorageService } from '../../services/storage';
+import { exportSurveysToCSV } from '../../services/exportService';
 
 export const TeacherSurveyView: React.FC = () => {
-  const [surveys, setSurveys] = useState<TeacherSurveyResponse[]>(
+  const [surveys, setSurveys] = useState<TeacherSurveyResponse[]>(() =>
     StorageService.getTeacherSurveys()
   );
 
@@ -48,6 +53,7 @@ export const TeacherSurveyView: React.FC = () => {
       unreasonable_alert: unreasonable || 'Không có phản hồi tiêu cực',
       needed_information: neededInfo || 'Đầy đủ cho mức nguyên mẫu',
       suggestions: suggestions || 'Ủng hộ mở rộng triển khai thử nghiệm diện rộng',
+      is_sample: false,
     };
 
     StorageService.addTeacherSurvey(newSurvey);
@@ -55,6 +61,13 @@ export const TeacherSurveyView: React.FC = () => {
     setSubmittedSuccess(true);
     setTimeout(() => setSubmittedSuccess(false), 4000);
   };
+
+  const handleExportCSV = () => {
+    exportSurveysToCSV(surveys);
+  };
+
+  const sampleCount = surveys.filter((s) => s.is_sample).length;
+  const realCount = surveys.filter((s) => !s.is_sample).length;
 
   // Compute average scores across all surveys
   const n = surveys.length || 1;
@@ -90,14 +103,24 @@ export const TeacherSurveyView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <FileCheck2 className="w-5 h-5 text-sky-800" />
-          <span>Khảo sát & Đánh giá của Giảng viên về Hệ thống (User Evaluation)</span>
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Thu thập phản hồi sư phạm thực tế từ nhóm chuyên gia và giảng viên dạy lập trình về tính hữu dụng, khả năng giải thích và đạo đức AI.
-        </p>
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <FileCheck2 className="w-5 h-5 text-sky-800" />
+            <span>Khảo sát & Đánh giá của Giảng viên về Hệ thống (User Evaluation)</span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Thu thập phản hồi sư phạm thực tế từ nhóm chuyên gia và giảng viên dạy lập trình về tính hữu dụng, khả năng giải thích và đạo đức AI.
+          </p>
+        </div>
+
+        <button
+          onClick={handleExportCSV}
+          className="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs self-start md:self-center"
+        >
+          <Download className="w-3.5 h-3.5 text-emerald-700" />
+          <span>Xuất kết quả khảo sát (CSV)</span>
+        </button>
       </div>
 
       {/* Aggregate Score Card */}
@@ -110,9 +133,13 @@ export const TeacherSurveyView: React.FC = () => {
           <div className="text-3xl font-bold font-mono text-emerald-400 mt-1 tabular-nums">
             {overallAvg} / 5.00
           </div>
-          <p className="text-xs text-slate-300 mt-0.5">
-            Tổng hợp từ {surveys.length} giảng viên tham gia thử nghiệm nguyên mẫu
-          </p>
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-300">
+            <span>Tổng cộng: <strong className="text-white font-mono">{surveys.length}</strong> phiếu</span>
+            <span>•</span>
+            <span className="text-sky-300">Phản hồi thực tế: <strong className="font-mono">{realCount}</strong></span>
+            <span>•</span>
+            <span className="text-amber-300">Khảo sát mẫu: <strong className="font-mono">{sampleCount}</strong></span>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -135,10 +162,19 @@ export const TeacherSurveyView: React.FC = () => {
         </div>
       </div>
 
+      {realCount === 0 && (
+        <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs flex items-center gap-2">
+          <Info className="w-4 h-4 text-amber-700 shrink-0" />
+          <span>
+            Hệ thống hiện đang lưu giữ <strong>{sampleCount}</strong> phiếu khảo sát mẫu để tham khảo. Chưa có phản hồi khảo sát trực tiếp từ người dùng thực tế trong phiên hiện tại.
+          </span>
+        </div>
+      )}
+
       {submittedSuccess && (
         <div className="p-3 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-medium flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-          <span>Cảm ơn Thầy/Cô! Phản hồi đánh giá đã được lưu vào hệ thống và cập nhật vào báo cáo.</span>
+          <span>Cảm ơn Thầy/Cô! Phản hồi đánh giá đã được lưu vào hệ thống và gắn nhãn "Phản hồi thực tế".</span>
         </div>
       )}
 
@@ -255,7 +291,7 @@ export const TeacherSurveyView: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-lg bg-sky-800 hover:bg-sky-900 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+              className="w-full py-2.5 rounded-lg bg-sky-800 hover:bg-sky-900 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
               <span>Gửi Đánh giá Chuyên môn</span>
@@ -266,10 +302,21 @@ export const TeacherSurveyView: React.FC = () => {
         {/* Danh sách các đánh giá đã ghi nhận */}
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-3">
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Users className="w-4 h-4 text-sky-800" />
-              <span>Ý kiến Chuyên môn của Giảng viên ({surveys.length} phiếu)</span>
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Users className="w-4 h-4 text-sky-800" />
+                <span>Ý kiến Chuyên môn của Giảng viên ({surveys.length} phiếu)</span>
+              </h2>
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="px-2 py-0.5 rounded font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  Thực tế: {realCount}
+                </span>
+                <span className="px-2 py-0.5 rounded font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                  Mẫu: {sampleCount}
+                </span>
+              </div>
+            </div>
+
             <p className="text-xs text-slate-500">
               Lưu trữ minh bạch các phản biện sư phạm để hoàn thiện mô hình can thiệp.
             </p>
@@ -282,7 +329,18 @@ export const TeacherSurveyView: React.FC = () => {
                 >
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <div>
-                      <span className="font-bold text-slate-900">{sv.teacher_name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">{sv.teacher_name}</span>
+                        {sv.is_sample ? (
+                          <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-200 font-semibold">
+                            Khảo sát mẫu
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200 font-semibold">
+                            Phản hồi thực tế
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[11px] text-slate-500 block">{sv.subject}</span>
                     </div>
                     <div className="text-right">

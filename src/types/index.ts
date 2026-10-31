@@ -10,7 +10,7 @@ export type AlertStatus = 'ALERT' | 'WATCH' | 'NORMAL';
 
 export type TeacherConfirmation = 'UNREVIEWED' | 'CONFIRMED' | 'WATCHING' | 'DISMISSED';
 
-export type InterventionStatus = 'NONE' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+export type InterventionStatus = 'NONE' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'STOPPED';
 
 export type InterventionType = 
   | 'Hỗ trợ trực tiếp'
@@ -20,6 +20,12 @@ export type InterventionType =
   | 'Theo dõi thêm'
   | 'Trao đổi cá nhân'
   | 'Khác';
+
+export type SupportSituation = 
+  | 'Ít hoạt động hoặc chưa hoàn thành bài'
+  | 'Chạy mã nhiều lần nhưng vượt ít bài kiểm thử'
+  | 'Kết quả lập trình suy giảm'
+  | 'Hỗ trợ tổng hợp';
 
 export interface WeeklyHistory {
   week: number;
@@ -69,6 +75,7 @@ export interface LearnerDerived extends LearnerRaw {
   confirmation_timestamp?: string;
   teacher_notes?: string;
   intervention_type?: InterventionType;
+  intervention_situation?: SupportSituation;
   intervention_status: InterventionStatus;
   intervention_date?: string;
   intervention_outcome?: string;
@@ -105,13 +112,26 @@ export interface ThresholdSimulationPoint {
   recall: number;
   alertCount: number;
   accuracy: number;
+  tp: number;
+  fp: number;
+  tn: number;
+  fn: number;
 }
 
 export interface AuditLogItem {
   id: string;
   timestamp: string;
   learner_id: string;
-  event_type: 'Cảnh báo được sinh' | 'GV xác nhận cần hỗ trợ' | 'GV theo dõi thêm' | 'GV bác bỏ cảnh báo' | 'Cập nhật can thiệp' | 'Thay đổi ngưỡng';
+  event_type: 
+    | 'Cảnh báo được sinh'
+    | 'GV xác nhận cần hỗ trợ'
+    | 'GV theo dõi thêm'
+    | 'GV bác bỏ cảnh báo'
+    | 'Cập nhật can thiệp'
+    | 'Dừng can thiệp'
+    | 'Thay đổi ngưỡng'
+    | 'Khôi phục sao lưu'
+    | 'Khởi tạo dữ liệu';
   reasons: string;
   system_result: string;
   teacher_decision: string;
@@ -123,6 +143,7 @@ export interface TeacherSurveyResponse {
   teacher_name: string;
   subject: string;
   created_at: string;
+  is_sample?: boolean;
   q1_easy_to_use: number;       // 1-5
   q2_indicators_clear: number;  // 1-5
   q3_reasons_clear: number;      // 1-5
@@ -140,10 +161,28 @@ export interface TestCaseItem {
   id: string;
   title: string;
   category: string;
+  test_type: 'AUTOMATED' | 'MANUAL_UI';
   input_data: string;
   action: string;
   expected_result: string;
   actual_result: string;
-  status: 'PASS' | 'FAIL';
+  status: 'PENDING' | 'PASS' | 'FAIL';
+  execution_time_ms?: number;
+  error_message?: string;
   details: string;
+}
+
+export interface DataQualityIssue {
+  learner_id: string;
+  field: string;
+  issueType: 'DUPLICATE_ID' | 'OUT_OF_BOUNDS' | 'INVALID_RELATION' | 'MISSING_FIELD' | 'HISTORY_MISMATCH';
+  description: string;
+}
+
+export interface DataQualityReport {
+  totalRecords: number;
+  validRecords: number;
+  invalidRecords: number;
+  issues: DataQualityIssue[];
+  checkedAt: string;
 }

@@ -430,8 +430,16 @@ export const LearnerDetailModal: React.FC<LearnerDetailModalProps> = ({
             {/* Intervention Options (if confirmed or watching) */}
             {decision !== 'DISMISSED' && (
               <div className="pt-3 border-t border-slate-100 space-y-3">
-                <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
-                  <span>Thiết lập kế hoạch can thiệp:</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
+                    <span>Thiết lập kế hoạch can thiệp:</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500">Tình huống sư phạm:</span>
+                    <span className="font-semibold text-sky-900 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 text-[11px]">
+                      {learner.intervention_situation || 'Hỗ trợ năng lực lập trình'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
@@ -462,6 +470,7 @@ export const LearnerDetailModal: React.FC<LearnerDetailModalProps> = ({
                       <option value="PENDING">Chưa thực hiện</option>
                       <option value="IN_PROGRESS">Đang thực hiện</option>
                       <option value="COMPLETED">Hoàn thành</option>
+                      <option value="STOPPED">Đã dừng can thiệp</option>
                     </select>
                   </div>
 

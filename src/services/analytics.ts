@@ -5,8 +5,28 @@ import {
   AuditMetric,
   ThresholdSimulationPoint,
   TeacherConfirmation,
-  InterventionStatus
+  InterventionStatus,
+  SupportSituation,
 } from '../types';
+
+export function determineSupportSituation(learner: {
+  submission_rate: number;
+  active_days_7d: number;
+  code_runs: number;
+  test_pass_rate: number;
+  progress_trend: string;
+}): SupportSituation {
+  if (learner.submission_rate < 0.70 || learner.active_days_7d <= 2) {
+    return 'Ít hoạt động hoặc chưa hoàn thành bài';
+  }
+  if (learner.code_runs >= 15 && learner.test_pass_rate < 0.50) {
+    return 'Chạy mã nhiều lần nhưng vượt ít bài kiểm thử';
+  }
+  if (learner.progress_trend === 'DECLINING') {
+    return 'Kết quả lập trình suy giảm';
+  }
+  return 'Hỗ trợ tổng hợp';
+}
 
 export function calculateDerivedLearner(
   raw: LearnerRaw,
@@ -16,45 +36,66 @@ export function calculateDerivedLearner(
     timestamp?: string;
     notes?: string;
     intervention_type?: any;
+    intervention_situation?: SupportSituation;
     intervention_status?: InterventionStatus;
     intervention_date?: string;
     intervention_outcome?: string;
   }
 ): LearnerDerived {
-  const submission_rate = raw.assignments_due > 0 ? raw.assignments_submitted / raw.assignments_due : 0;
-  const late_rate = raw.assignments_due > 0 ? raw.late_submissions / raw.assignments_due : 0;
-  const test_pass_rate = raw.total_tests > 0 ? raw.tests_passed / raw.total_tests : 0;
-  const total_errors = raw.syntax_errors + raw.runtime_errors + raw.logic_errors;
-  const error_rate = raw.code_runs > 0 ? total_errors / raw.code_runs : 0;
+  // Safe ratios with zero denominator handling
+  const due = Number.isFinite(raw.assignments_due) && raw.assignments_due > 0 ? raw.assignments_due : 0;
+  const submitted = Number.isFinite(raw.assignments_submitted) && raw.assignments_submitted >= 0 ? raw.assignments_submitted : 0;
+  const late = Number.isFinite(raw.late_submissions) && raw.late_submissions >= 0 ? raw.late_submissions : 0;
+  const runs = Number.isFinite(raw.code_runs) && raw.code_runs >= 0 ? raw.code_runs : 0;
+  const totalTests = Number.isFinite(raw.total_tests) && raw.total_tests > 0 ? raw.total_tests : 0;
+  const passedTests = Number.isFinite(raw.tests_passed) && raw.tests_passed >= 0 ? raw.tests_passed : 0;
 
-  // Activity level
+  const syntaxErrors = Number.isFinite(raw.syntax_errors) && raw.syntax_errors >= 0 ? raw.syntax_errors : 0;
+  const runtimeErrors = Number.isFinite(raw.runtime_errors) && raw.runtime_errors >= 0 ? raw.runtime_errors : 0;
+  const logicErrors = Number.isFinite(raw.logic_errors) && raw.logic_errors >= 0 ? raw.logic_errors : 0;
+  const total_errors = syntaxErrors + runtimeErrors + logicErrors;
+
+  const submission_rate = due > 0 ? Math.max(0, Math.min(1, submitted / due)) : 0;
+  const late_rate = due > 0 ? Math.max(0, Math.min(1, late / due)) : 0;
+  const test_pass_rate = totalTests > 0 ? Math.max(0, Math.min(1, passedTests / totalTests)) : 0;
+  const error_rate = runs > 0 ? Math.max(0, total_errors / runs) : 0;
+
+  // Activity level calculation based on login and active days
   let activity_level: 'Cao' | 'Trung bình' | 'Thấp' = 'Trung bình';
-  if (raw.login_count_7d >= 12 && raw.active_days_7d >= 4) {
+  const loginCount = Number.isFinite(raw.login_count_7d) ? raw.login_count_7d : 0;
+  const activeDays = Number.isFinite(raw.active_days_7d) ? raw.active_days_7d : 0;
+
+  if (loginCount >= 12 && activeDays >= 4) {
     activity_level = 'Cao';
-  } else if (raw.login_count_7d <= 5 || raw.active_days_7d <= 2) {
+  } else if (loginCount <= 5 || activeDays <= 2) {
     activity_level = 'Thấp';
   }
 
-  // Progress trend
+  // Progress trend: compare current vs previous test pass rate safely
   let progress_trend: 'IMPROVING' | 'STABLE' | 'DECLINING' = 'STABLE';
-  const passDiff = raw.current_test_pass_rate - raw.previous_test_pass_rate;
+  const prevPass = Number.isFinite(raw.previous_test_pass_rate) ? raw.previous_test_pass_rate : test_pass_rate;
+  const currPass = Number.isFinite(raw.current_test_pass_rate) ? raw.current_test_pass_rate : test_pass_rate;
+  const passDiff = currPass - prevPass;
+
   if (passDiff >= 0.03) {
     progress_trend = 'IMPROVING';
   } else if (passDiff <= -0.03) {
     progress_trend = 'DECLINING';
   }
 
-  // Evidence score calculation & explainable reasons
+  // Evidence score calculation with explicit boundary compliance
   let evidence_score = 0;
   const alert_reasons: string[] = [];
 
+  // Quy tắc 1: Tỷ lệ hoàn thành nhiệm vụ < ngưỡng (Mặc định 0.70)
   if (submission_rate < thresholds.submissionRate) {
     evidence_score += 2;
     alert_reasons.push(
-      `Chỉ hoàn thành ${Math.round(submission_rate * 100)}% bài được giao (${raw.assignments_submitted}/${raw.assignments_due} bài)`
+      `Chỉ hoàn thành ${Math.round(submission_rate * 100)}% bài được giao (${submitted}/${due} bài)`
     );
   }
 
+  // Quy tắc 2: Tỷ lệ kiểm thử đạt < ngưỡng (Mặc định 0.50)
   if (test_pass_rate < thresholds.testPassRate) {
     evidence_score += 2;
     alert_reasons.push(
@@ -62,48 +103,61 @@ export function calculateDerivedLearner(
     );
   }
 
-  if (raw.late_submissions >= thresholds.lateCount) {
+  // Quy tắc 3: Số bài nộp trễ >= ngưỡng (Mặc định >= 2)
+  if (late >= thresholds.lateCount) {
     evidence_score += 1;
     alert_reasons.push(
-      `${raw.late_submissions} bài gần nhất nộp trễ so với hạn chót quy định`
+      `${late} bài gần nhất nộp trễ so với hạn chót quy định`
     );
   }
 
+  // Quy tắc 4: Tỷ lệ lỗi trên tổng lần chạy > ngưỡng (Mặc định > 0.60)
   if (error_rate > thresholds.errorRate) {
     evidence_score += 1;
     alert_reasons.push(
-      `Tỷ lệ gặp lỗi cao (${Math.round(error_rate * 100)}% trên tổng số lần chạy mã, ${total_errors} lỗi / ${raw.code_runs} lần)`
+      `Tỷ lệ gặp lỗi cao (${Math.round(error_rate * 100)}% trên tổng số lần chạy mã, ${total_errors} lỗi / ${runs} lần)`
     );
   }
 
-  if (raw.active_days_7d <= thresholds.activeDays) {
+  // Quy tắc 5: Số ngày hoạt động trong tuần <= ngưỡng (Mặc định <= 2)
+  if (activeDays <= thresholds.activeDays) {
     evidence_score += 1;
     alert_reasons.push(
-      `Số ngày hoạt động trong 7 ngày qua rất ít (${raw.active_days_7d} ngày, ${raw.login_count_7d} lượt đăng nhập)`
+      `Số ngày hoạt động trong 7 ngày qua rất ít (${activeDays} ngày, ${loginCount} lượt đăng nhập)`
     );
   }
 
+  // Quy tắc 6: Xu hướng kết quả kiểm thử suy giảm
   if (progress_trend === 'DECLINING') {
     evidence_score += 1;
     alert_reasons.push(
-      `Kết quả kiểm thử có xu hướng giảm liên tục (${Math.round(raw.previous_test_pass_rate * 100)}% xuống ${Math.round(raw.current_test_pass_rate * 100)}%)`
+      `Kết quả kiểm thử có xu hướng giảm liên tục (${Math.round(prevPass * 100)}% xuống ${Math.round(currPass * 100)}%)`
     );
   }
 
-  if (raw.code_runs >= thresholds.highRunThreshold && test_pass_rate < thresholds.lowPassWithHighRun) {
+  // Quy tắc 7: Vòng lặp bế tắc - chạy mã nhiều lần (>=15) nhưng tỷ lệ test đạt thấp (<40%)
+  if (runs >= thresholds.highRunThreshold && test_pass_rate < thresholds.lowPassWithHighRun) {
     evidence_score += 1;
     alert_reasons.push(
-      `Đã chạy chương trình ${raw.code_runs} lần nhưng chỉ vượt ${Math.round(test_pass_rate * 100)}% bộ kiểm thử (dấu hiệu bế tắc/thử-sai mù quáng)`
+      `Đã chạy chương trình ${runs} lần nhưng chỉ vượt ${Math.round(test_pass_rate * 100)}% bộ kiểm thử (dấu hiệu bế tắc/thử-sai mù quáng)`
     );
   }
 
-  // Determine status
+  // Phân cấp trạng thái theo ngưỡng Evidence Score
   let alert_status: 'ALERT' | 'WATCH' | 'NORMAL' = 'NORMAL';
   if (evidence_score >= thresholds.evidenceAlert) {
     alert_status = 'ALERT';
   } else if (evidence_score >= thresholds.evidenceWatch) {
     alert_status = 'WATCH';
   }
+
+  const defaultSituation = determineSupportSituation({
+    submission_rate,
+    active_days_7d: activeDays,
+    code_runs: runs,
+    test_pass_rate,
+    progress_trend,
+  });
 
   return {
     ...raw,
@@ -121,6 +175,7 @@ export function calculateDerivedLearner(
     confirmation_timestamp: review?.timestamp,
     teacher_notes: review?.notes,
     intervention_type: review?.intervention_type,
+    intervention_situation: review?.intervention_situation || defaultSituation,
     intervention_status: review?.intervention_status || 'NONE',
     intervention_date: review?.intervention_date,
     intervention_outcome: review?.intervention_outcome,
@@ -141,7 +196,8 @@ export function computeAuditMetrics(learners: LearnerDerived[]): AuditMetric {
 
     if (isAlert) {
       totalAlerts++;
-      if (learner.teacher_confirmation === 'CONFIRMED' || learner.intervention_status !== 'NONE') {
+      // Actionable when teacher confirmed or an intervention is established
+      if (learner.teacher_confirmation === 'CONFIRMED' || (learner.intervention_status && learner.intervention_status !== 'NONE')) {
         actionableInterventions++;
       }
     }
@@ -199,6 +255,10 @@ export function simulateThresholds(
       recall: Number((metrics.recall * 100).toFixed(1)),
       alertCount: metrics.totalAlerts,
       accuracy: Number((metrics.accuracy * 100).toFixed(1)),
+      tp: metrics.tp,
+      fp: metrics.fp,
+      tn: metrics.tn,
+      fn: metrics.fn,
     });
   }
 
@@ -215,6 +275,7 @@ export interface SubgroupAudit {
   precision: number;
   recall: number;
   fpr: number; // False Positive Rate = FP / (FP + TN)
+  isSampleSmall: boolean; // Flag if N < 10
 }
 
 export function computeFairnessAudit(learners: LearnerDerived[]): {
@@ -248,6 +309,7 @@ export function computeFairnessAudit(learners: LearnerDerived[]): {
       precision,
       recall,
       fpr,
+      isSampleSmall: items.length < 10,
     };
   };
 

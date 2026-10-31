@@ -238,6 +238,7 @@ export default function App() {
           {currentTab === 'overview' && (
             <OverviewView
               learners={visibleLearners}
+              selectedWeek={selectedWeek}
               onSelectLearner={setSelectedLearnerId}
               onNavigateToTab={setCurrentTab}
               onReviewAlert={handleReviewAlert}
@@ -276,7 +277,15 @@ export default function App() {
           )}
 
           {currentTab === 'data' && (
-            <DataManagementView onResetDemo={handleResetDemo} />
+            <DataManagementView
+              onResetDemo={handleResetDemo}
+              onDataReload={() => {
+                setThresholds(StorageService.getThresholds());
+                setReviews(StorageService.getTeacherReviews());
+                setRawLearners(StorageService.getLearnersRaw());
+              }}
+              learners={visibleLearners}
+            />
           )}
 
           {currentTab === 'settings' && (
