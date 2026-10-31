@@ -2686,6 +2686,18 @@ export const SEED_TEST_CASES: TestCaseItem[] = [
     details: 'Đảm bảo xử lý đúng học sinh nằm ngay mép ngưỡng mà không bị phạt oan.'
   },
   {
+    id: 'TC-13',
+    title: 'Kiểm tra tính toàn vẹn sao lưu: Bắt lỗi bản ghi không hợp lệ ở cuối danh sách',
+    category: 'An toàn dữ liệu',
+    test_type: 'AUTOMATED',
+    input_data: 'Tệp JSON sao lưu gồm danh sách 80 học sinh hợp lệ và 1 bản ghi lỗi ở cuối (#81: learner_id bị rỗng)',
+    action: 'Gọi StorageService.previewBackup(json) và kiểm tra kết quả thẩm định',
+    expected_result: 'valid = false, chỉ rõ vị trí và lỗi tại bản ghi cuối cùng, không cho phép khôi phục',
+    actual_result: 'Chưa thực thi kiểm thử',
+    status: 'PENDING',
+    details: 'Đảm bảo duyệt toàn bộ 100% hồ sơ trong tệp sao lưu thay vì chỉ kiểm tra 5 hồ sơ đầu.'
+  },
+  {
     id: 'TC-M01',
     title: 'Kiểm thử Thủ công: Giáo viên xác nhận cảnh báo & lập can thiệp',
     category: 'Giao diện & Tương tác',

@@ -233,14 +233,89 @@ export const StorageService = {
       if (!Array.isArray(parsed.learners) || parsed.learners.length === 0) {
         return { valid: false, error: 'Tệp sao lưu thiếu danh sách người học (learners) hoặc danh sách rỗng.' };
       }
-      for (const item of parsed.learners.slice(0, 5)) {
-        if (!item || typeof item !== 'object' || !item.learner_id || !item.class_name) {
-          return { valid: false, error: 'Cấu trúc hồ sơ người học trong tệp sao lưu không đúng chuẩn.' };
+
+      // Kiểm tra toàn bộ 100% hồ sơ người học thay vì chỉ 5 hồ sơ đầu
+      for (let i = 0; i < parsed.learners.length; i++) {
+        const item = parsed.learners[i];
+        if (!item || typeof item !== 'object') {
+          return { valid: false, error: `Hồ sơ thứ ${i + 1} không phải là đối tượng hợp lệ.` };
+        }
+        if (!item.learner_id || typeof item.learner_id !== 'string' || item.learner_id.trim() === '') {
+          return { valid: false, error: `Hồ sơ thứ ${i + 1} thiếu mã định danh learner_id hoặc không hợp lệ.` };
+        }
+        if (!item.class_name || typeof item.class_name !== 'string' || !['LOP_A', 'LOP_B', 'LOP_C'].includes(item.class_name)) {
+          return { valid: false, error: `Hồ sơ thứ ${i + 1} (${item.learner_id}) có lớp "${item.class_name}" không hợp lệ.` };
+        }
+        const numericFields = [
+          'assignments_due',
+          'assignments_submitted',
+          'late_submissions',
+          'code_runs',
+          'tests_passed',
+          'total_tests',
+        ];
+        for (const field of numericFields) {
+          const val = item[field];
+          if (val === null || val === undefined || typeof val !== 'number' || Number.isNaN(val) || val < 0) {
+            return { valid: false, error: `Hồ sơ thứ ${i + 1} (${item.learner_id}): chỉ số ${field} không phải số không âm hợp lệ.` };
+          }
+        }
+        if (Array.isArray(item.weekly_history)) {
+          for (let w = 0; w < item.weekly_history.length; w++) {
+            const h = item.weekly_history[w];
+            if (!h || typeof h !== 'object' || typeof h.week !== 'number' || typeof h.test_pass_rate !== 'number') {
+              return { valid: false, error: `Hồ sơ thứ ${i + 1} (${item.learner_id}): tuần lịch sử thứ ${w + 1} không hợp lệ.` };
+            }
+          }
         }
       }
-      if (parsed.thresholds && typeof parsed.thresholds !== 'object') {
-        return { valid: false, error: 'Cấu hình ngưỡng (thresholds) trong tệp sao lưu không hợp lệ.' };
+
+      // Kiểm tra cấu hình ngưỡng nếu có
+      if (parsed.thresholds) {
+        if (typeof parsed.thresholds !== 'object' || Array.isArray(parsed.thresholds)) {
+          return { valid: false, error: 'Cấu hình ngưỡng (thresholds) trong tệp sao lưu không hợp lệ.' };
+        }
+        const reqFields = ['submissionRate', 'testPassRate', 'evidenceAlert', 'evidenceWatch'];
+        for (const f of reqFields) {
+          if (typeof parsed.thresholds[f] !== 'number' || Number.isNaN(parsed.thresholds[f])) {
+            return { valid: false, error: `Cấu hình ngưỡng thiếu hoặc sai kiểu trường ${f}.` };
+          }
+        }
       }
+
+      // Kiểm tra quyết định giáo viên nếu có
+      if (parsed.reviews) {
+        if (typeof parsed.reviews !== 'object' || Array.isArray(parsed.reviews)) {
+          return { valid: false, error: 'Danh sách quyết định giáo viên (reviews) phải là đối tượng key-value.' };
+        }
+      }
+
+      // Kiểm tra danh sách khảo sát nếu có
+      if (parsed.surveys) {
+        if (!Array.isArray(parsed.surveys)) {
+          return { valid: false, error: 'Danh sách khảo sát giáo viên (surveys) phải là một mảng.' };
+        }
+        for (let s = 0; s < parsed.surveys.length; s++) {
+          const surv = parsed.surveys[s];
+          if (!surv || typeof surv !== 'object') {
+            return { valid: false, error: `Phiếu khảo sát thứ ${s + 1} không phải là đối tượng hợp lệ.` };
+          }
+        }
+      }
+
+      // Kiểm tra nhật ký hệ thống nếu có
+      if (parsed.logs) {
+        if (!Array.isArray(parsed.logs)) {
+          return { valid: false, error: 'Nhật ký hệ thống (logs) phải là một mảng.' };
+        }
+        for (let l = 0; l < parsed.logs.length; l++) {
+          const log = parsed.logs[l];
+          if (!log || typeof log !== 'object' || !log.id || !log.event_type) {
+            return { valid: false, error: `Bản ghi nhật ký thứ ${l + 1} thiếu id hoặc event_type.` };
+          }
+        }
+      }
+
       return {
         valid: true,
         summary: {
@@ -253,6 +328,62 @@ export const StorageService = {
       };
     } catch (e: any) {
       return { valid: false, error: `Lỗi đọc JSON: ${e.message}` };
+    }
+  },
+
+  importTeacherSurveys(jsonString: string): { success: boolean; addedCount: number; message: string } {
+    try {
+      const parsed = JSON.parse(jsonString);
+      const incomingList: any[] = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.surveys) ? parsed.surveys : [];
+      if (incomingList.length === 0) {
+        return { success: false, addedCount: 0, message: 'Tệp JSON không chứa danh sách khảo sát hợp lệ.' };
+      }
+
+      const currentSurveys = this.getTeacherSurveys();
+      let added = 0;
+      for (const item of incomingList) {
+        if (!item || typeof item !== 'object' || !item.teacher_name) continue;
+        const isDuplicate = currentSurveys.some(
+          (c) =>
+            c.teacher_name === item.teacher_name &&
+            c.subject === item.subject &&
+            c.q1_easy_to_use === item.q1_easy_to_use &&
+            c.q7_would_use_in_practice === item.q7_would_use_in_practice &&
+            (c.created_at === item.created_at || c.id === item.id)
+        );
+        if (!isDuplicate) {
+          const newId = `SURV_${(currentSurveys.length + 1).toString().padStart(2, '0')}`;
+          const newSurvey: TeacherSurveyResponse = {
+            id: newId,
+            teacher_name: String(item.teacher_name).trim(),
+            subject: String(item.subject || 'CS101').trim(),
+            created_at: item.created_at || new Date().toLocaleString('vi-VN', { hour12: false }),
+            q1_easy_to_use: Number(item.q1_easy_to_use) || 4,
+            q2_indicators_clear: Number(item.q2_indicators_clear) || 4,
+            q3_reasons_clear: Number(item.q3_reasons_clear) || 4,
+            q4_helps_identify: Number(item.q4_helps_identify) || 4,
+            q5_realistic_interventions: Number(item.q5_realistic_interventions) || 4,
+            q6_no_stigmatization: Number(item.q6_no_stigmatization) || 4,
+            q7_would_use_in_practice: Number(item.q7_would_use_in_practice) || 4,
+            most_useful_indicator: item.most_useful_indicator || '',
+            unreasonable_alert: item.unreasonable_alert || '',
+            needed_information: item.needed_information || '',
+            suggestions: item.suggestions || '',
+            is_sample: Boolean(item.is_sample),
+          };
+          currentSurveys.unshift(newSurvey);
+          added++;
+        }
+      }
+
+      if (added > 0) {
+        localStorage.setItem(KEYS.SURVEYS, JSON.stringify(currentSurveys));
+        return { success: true, addedCount: added, message: `Đã nạp và gộp thành công ${added} phản hồi khảo sát mới vào trình duyệt!` };
+      } else {
+        return { success: true, addedCount: 0, message: 'Tất cả phản hồi trong tệp đã tồn tại trong hệ thống, không có mục mới nào được thêm.' };
+      }
+    } catch (e: any) {
+      return { success: false, addedCount: 0, message: `Lỗi đọc tệp JSON khảo sát: ${e.message}` };
     }
   },
 

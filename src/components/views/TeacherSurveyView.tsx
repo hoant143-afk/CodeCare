@@ -6,6 +6,7 @@ import {
   Users,
   Award,
   Download,
+  Upload,
   Info,
   AlertCircle,
   HelpCircle,
@@ -99,6 +100,35 @@ export const TeacherSurveyView: React.FC = () => {
     exportSurveysToCSV(surveys);
   };
 
+  const handleExportJSON = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(surveys, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `codecare_teacher_surveys_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (!content) return;
+      const res = StorageService.importTeacherSurveys(content);
+      if (res.success) {
+        setSurveys(StorageService.getTeacherSurveys());
+        alert(res.message);
+      } else {
+        alert(res.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   // Phân tách hoàn toàn khảo sát thực tế và khảo sát mẫu
   const realSurveys = surveys.filter((s) => !s.is_sample);
   const sampleSurveys = surveys.filter((s) => s.is_sample);
@@ -157,13 +187,47 @@ export const TeacherSurveyView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          className="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs self-start md:self-center"
-        >
-          <Download className="w-3.5 h-3.5 text-emerald-700" />
-          <span>Xuất kết quả khảo sát (CSV)</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
+          <label className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
+            <Upload className="w-3.5 h-3.5 text-sky-700" />
+            <span>Nhập JSON</span>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportJSON}
+              className="hidden"
+            />
+          </label>
+
+          <button
+            onClick={handleExportJSON}
+            className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+          >
+            <Download className="w-3.5 h-3.5 text-sky-700" />
+            <span>Xuất JSON</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Xuất CSV</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Thông báo phạm vi lưu trữ cục bộ */}
+      <div className="p-4 bg-sky-50/70 border border-sky-200 rounded-xl text-xs text-sky-950 flex items-start gap-3">
+        <Info className="w-4 h-4 text-sky-700 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <div className="font-semibold text-sky-900">
+            Thông báo lưu trữ cục bộ trình duyệt (Local Storage Notice):
+          </div>
+          <p className="text-sky-800 leading-relaxed">
+            Mọi phản hồi khảo sát được lưu trữ bảo mật trong trình duyệt hiện tại của bạn (<code className="font-mono bg-sky-100 px-1 py-0.5 rounded text-[11px]">localStorage</code>) và <strong>không tự động đồng bộ qua các thiết bị khác nhau</strong>. Nếu các giảng viên đánh giá từ các máy tính độc lập, hãy sử dụng nút <strong>Xuất JSON</strong> để lưu tệp phản hồi và gửi cho người quản trị; người quản trị dùng <strong>Nhập JSON</strong> để gộp các phản hồi vào chung một hệ thống một cách an toàn mà không bị trùng lặp hay ghi đè.
+          </p>
+        </div>
       </div>
 
       {/* Aggregate Score Cards: Rạch ròi giữa Thực tế và Tham khảo Mẫu */}

@@ -1,6 +1,7 @@
 import { TestCaseItem, ThresholdConfig, LearnerRaw } from '../types';
 import { calculateDerivedLearner, computeAuditMetrics } from './analytics';
 import { DEFAULT_THRESHOLDS } from '../data/seedData';
+import { StorageService } from './storage';
 
 export interface TestRunReport {
   total: number;
@@ -304,11 +305,12 @@ export function runAutomatedTestSuites(
         teacher_label: 'NORMAL',
         weekly_history: [],
       };
-      const derived = calculateDerivedLearner(syntheticWatchStudent, activeThresholds);
+      // Chạy theo đúng cấu hình ngưỡng benchmark yêu cầu (evidenceWatch = 3, evidenceAlert = 4)
+      const derived = calculateDerivedLearner(syntheticWatchStudent, DEFAULT_THRESHOLDS);
       const pass = derived.evidence_score === 3 && derived.alert_status === 'WATCH';
       return {
         pass,
-        actual: `Evidence Score = ${derived.evidence_score}, Alert Status = ${derived.alert_status}`,
+        actual: `Evidence Score = ${derived.evidence_score}, Alert Status = ${derived.alert_status} (với ngưỡng chuẩn: Watch=3, Alert=4)`,
         error: pass ? undefined : `Kỳ vọng Score = 3 và Status = WATCH, thực tế Score = ${derived.evidence_score}`,
       };
     }
@@ -401,13 +403,65 @@ export function runAutomatedTestSuites(
         teacher_label: 'NORMAL',
         weekly_history: [],
       };
-      const derived = calculateDerivedLearner(boundaryStudent, activeThresholds);
+      // Chạy theo đúng cấu hình ngưỡng biên benchmark yêu cầu
+      const derived = calculateDerivedLearner(boundaryStudent, DEFAULT_THRESHOLDS);
       // Expected score: +1 (active_days <= 2) + 1 (late >= 2) = 2 points -> NORMAL
       const pass = derived.evidence_score === 2 && derived.alert_status === 'NORMAL';
       return {
         pass,
-        actual: `Evidence Score = ${derived.evidence_score}, Trạng thái: ${derived.alert_status}`,
+        actual: `Evidence Score = ${derived.evidence_score}, Trạng thái: ${derived.alert_status} (với ngưỡng chuẩn: Sub=70%, Test=50%, Err=60%)`,
         error: pass ? undefined : `Kỳ vọng Score = 2, thực tế Score = ${derived.evidence_score}`,
+      };
+    }
+  );
+
+  // TC-13: Kiểm tra tính toàn vẹn sao lưu: Bắt lỗi bản ghi không hợp lệ ở cuối danh sách
+  executeTest(
+    'TC-13',
+    'Kiểm tra tính toàn vẹn sao lưu: Bắt lỗi bản ghi không hợp lệ ở cuối danh sách',
+    'An toàn dữ liệu',
+    'Tệp JSON sao lưu gồm danh sách 80 học sinh hợp lệ và 1 bản ghi lỗi ở cuối (#81: learner_id bị rỗng)',
+    'Gọi StorageService.previewBackup(json) và kiểm tra kết quả thẩm định toàn diện',
+    'valid = false, phát hiện lỗi cụ thể tại bản ghi cuối cùng (#81), không thực hiện khôi phục',
+    'Đảm bảo duyệt toàn bộ 100% hồ sơ trong tệp sao lưu thay vì chỉ kiểm tra 5 hồ sơ đầu.',
+    () => {
+      const corruptPayload = {
+        version: '1.0',
+        exported_at: new Date().toISOString(),
+        thresholds: activeThresholds,
+        learners: [
+          ...learners,
+          {
+            learner_id: '', // Empty ID at the very end (#81)
+            class_name: 'LOP_A',
+            week: 6,
+            login_count_7d: 10,
+            active_days_7d: 3,
+            assignments_due: 6,
+            assignments_submitted: 6,
+            late_submissions: 0,
+            code_runs: 10,
+            syntax_errors: 1,
+            runtime_errors: 1,
+            logic_errors: 0,
+            tests_passed: 10,
+            total_tests: 10,
+            average_score: 8.0,
+            help_requests: 0,
+            feedback_count: 0,
+            previous_test_pass_rate: 0.8,
+            current_test_pass_rate: 0.8,
+            teacher_label: 'NORMAL',
+            weekly_history: [],
+          },
+        ],
+      };
+      const preview = StorageService.previewBackup(JSON.stringify(corruptPayload));
+      const pass = !preview.valid && (Boolean(preview.error?.includes('81')) || Boolean(preview.error?.includes('learner_id')));
+      return {
+        pass,
+        actual: `valid: ${preview.valid}, Thông báo: "${preview.error}"`,
+        error: pass ? undefined : 'previewBackup không bắt được lỗi tại bản ghi ở cuối danh sách',
       };
     }
   );

@@ -356,27 +356,17 @@ export function cleanLearnerDataset(learners: LearnerRaw[]): CleanedDatasetResul
     };
 
     // Kiểm tra và hiệu chỉnh quan hệ nộp trễ > nộp bài (STU007, STU034, STU060)
+    // Quy tắc làm sạch đã công bố: Số bài nộp trễ không thể vượt quá tổng số bài đã nộp
     if (copy.late_submissions > copy.assignments_submitted) {
+      const origLate = copy.late_submissions;
       changeLog.push({
         learner_id: copy.learner_id,
         field: 'late_submissions',
-        original_value: copy.late_submissions,
+        original_value: origLate,
         cleaned_value: copy.assignments_submitted,
-        reason: `Số bài nộp trễ (${copy.late_submissions}) vượt quá số bài đã nộp (${copy.assignments_submitted}). Hiệu chỉnh late_submissions = ${copy.assignments_submitted}.`,
+        reason: `Số bài nộp trễ (${origLate}) vượt quá số bài đã nộp (${copy.assignments_submitted}), điều chỉnh về ${copy.assignments_submitted}`,
       });
       copy.late_submissions = copy.assignments_submitted;
-    }
-
-    // Đảm bảo các giá trị NaN/null nếu có được gán giá trị mặc định hợp lý
-    if (Number.isNaN(copy.average_score) || copy.average_score === null) {
-      changeLog.push({
-        learner_id: copy.learner_id,
-        field: 'average_score',
-        original_value: copy.average_score,
-        cleaned_value: 0,
-        reason: 'Thay thế giá trị rỗng/NaN bằng 0',
-      });
-      copy.average_score = 0;
     }
 
     return copy;

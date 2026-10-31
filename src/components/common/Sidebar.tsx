@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'interventions' as NavTab,
-      label: 'Can thiệp',
+      label: 'Can thiệp sư phạm',
       icon: HeartHandshake,
       badge: activeInterventionsCount > 0 ? activeInterventionsCount : null,
       badgeColor: 'bg-sky-100 text-sky-900 border border-sky-300 font-semibold',
@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const secondaryNavItems = [
     { id: 'survey' as NavTab, label: 'Đánh giá GV', icon: FileCheck2 },
     { id: 'logs' as NavTab, label: 'Nhật ký AI / Audit Log', icon: History },
-    { id: 'testcases' as NavTab, label: 'Kịch bản kiểm thử (12)', icon: FileCode2 },
+    { id: 'testcases' as NavTab, label: 'Kịch bản kiểm thử (13)', icon: FileCode2 },
     { id: 'responsible_ai' as NavTab, label: 'AI có trách nhiệm', icon: BookMarked },
   ];
 

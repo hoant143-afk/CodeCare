@@ -44,20 +44,36 @@ export const TestCasesView: React.FC = () => {
 
   const handleToggleManualTest = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const target = testCases.find((tc) => tc.id === id);
+    if (!target || target.test_type !== 'MANUAL_UI') return;
+
+    let userNote: string | null = '';
+    const nextStatus: 'PASS' | 'PENDING' = target.status === 'PASS' ? 'PENDING' : 'PASS';
+
+    if (nextStatus === 'PASS') {
+      userNote = window.prompt(
+        `Nhập ghi chú kiểm tra thực tế cho kịch bản ${target.id} (Ví dụ: "Đã xác nhận thao tác thành công trên giao diện"):`,
+        'Đã kiểm tra thực tế trên giao diện, hoạt động chính xác theo kỳ vọng'
+      );
+      if (userNote === null) return; // Người dùng bấm Hủy
+    }
+
+    const timestamp = new Date().toLocaleString('vi-VN', { hour12: false });
     const updated = testCases.map((tc) => {
       if (tc.id === id && tc.test_type === 'MANUAL_UI') {
-        const nextStatus: 'PASS' | 'PENDING' = tc.status === 'PASS' ? 'PENDING' : 'PASS';
         return {
           ...tc,
           status: nextStatus,
           actual_result:
             nextStatus === 'PASS'
-              ? `Đã được giáo viên/người dùng kiểm tra thực tế và xác nhận đạt yêu cầu (${new Date().toLocaleTimeString('vi-VN')})`
+              ? `Đã được giáo viên/người dùng kiểm tra thực tế và xác nhận PASS (${timestamp}). Ghi chú: ${userNote || 'Không có ghi chú thêm'}`
               : 'Chờ người dùng thực hiện kiểm tra thực tế trên giao diện và bấm xác nhận',
+          execution_time_ms: nextStatus === 'PASS' ? 0 : undefined,
         };
       }
       return tc;
     });
+
     setTestCases(updated);
     StorageService.saveTestCases(updated);
   };
@@ -89,7 +105,7 @@ export const TestCasesView: React.FC = () => {
             <span>Kịch bản Kiểm thử Sư phạm & Kỹ thuật ({testCases.length} Kịch bản)</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Hệ thống kiểm thử xác thực sống: 12 kiểm thử tự động tính kết quả khi thực thi, 2 kiểm thử giao diện giữ trạng thái PENDING cho đến khi người dùng thao tác xác nhận.
+            Hệ thống kiểm thử xác thực sống: 13 kiểm thử tự động tính kết quả khi thực thi, 2 kiểm thử giao diện giữ trạng thái PENDING cho đến khi người dùng thao tác xác nhận.
           </p>
         </div>
 

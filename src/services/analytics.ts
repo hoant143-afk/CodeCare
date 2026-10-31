@@ -83,20 +83,52 @@ export function calculateDerivedLearner(
     progress_trend = 'DECLINING';
   }
 
+  // Check data availability for indicators
+  const hasValidSubmissionData =
+    raw.assignments_due !== null &&
+    raw.assignments_due !== undefined &&
+    Number.isFinite(raw.assignments_due) &&
+    raw.assignments_due > 0 &&
+    raw.assignments_submitted !== null &&
+    raw.assignments_submitted !== undefined &&
+    Number.isFinite(raw.assignments_submitted);
+
+  const hasValidTestData =
+    raw.total_tests !== null &&
+    raw.total_tests !== undefined &&
+    Number.isFinite(raw.total_tests) &&
+    raw.total_tests > 0 &&
+    raw.tests_passed !== null &&
+    raw.tests_passed !== undefined &&
+    Number.isFinite(raw.tests_passed);
+
+  const hasValidRunData =
+    raw.code_runs !== null &&
+    raw.code_runs !== undefined &&
+    Number.isFinite(raw.code_runs) &&
+    raw.code_runs > 0;
+
+  const hasValidActiveDays =
+    raw.active_days_7d !== null &&
+    raw.active_days_7d !== undefined &&
+    Number.isFinite(raw.active_days_7d);
+
   // Evidence score calculation with explicit boundary compliance
   let evidence_score = 0;
   const alert_reasons: string[] = [];
 
-  // Quy tắc 1: Tỷ lệ hoàn thành nhiệm vụ < ngưỡng (Mặc định 0.70) - Chỉ áp dụng khi có bài được giao (due > 0)
-  if (due > 0 && submission_rate < thresholds.submissionRate) {
+  // Quy tắc 1: Tỷ lệ hoàn thành nhiệm vụ < ngưỡng (Mặc định 0.70)
+  // Chỉ áp dụng khi có đủ dữ liệu bài được giao và bài nộp (due > 0 và submitted xác định)
+  if (hasValidSubmissionData && submission_rate < thresholds.submissionRate) {
     evidence_score += 2;
     alert_reasons.push(
       `Chỉ hoàn thành ${Math.round(submission_rate * 100)}% bài được giao (${submitted}/${due} bài)`
     );
   }
 
-  // Quy tắc 2: Tỷ lệ kiểm thử đạt < ngưỡng (Mặc định 0.50) - Chỉ áp dụng khi có bộ kiểm thử (totalTests > 0)
-  if (totalTests > 0 && test_pass_rate < thresholds.testPassRate) {
+  // Quy tắc 2: Tỷ lệ kiểm thử đạt < ngưỡng (Mặc định 0.50)
+  // Chỉ áp dụng khi có bộ kiểm thử hợp lệ (totalTests > 0 và tests_passed xác định; không coi thiếu test là yếu)
+  if (hasValidTestData && test_pass_rate < thresholds.testPassRate) {
     evidence_score += 2;
     alert_reasons.push(
       `Tỷ lệ vượt qua kiểm thử đạt ${Math.round(test_pass_rate * 100)}% (dưới ngưỡng tối thiểu ${Math.round(thresholds.testPassRate * 100)}%)`
@@ -111,8 +143,9 @@ export function calculateDerivedLearner(
     );
   }
 
-  // Quy tắc 4: Tỷ lệ lỗi trên tổng lần chạy > ngưỡng (Mặc định > 0.60) - Chỉ áp dụng khi có chạy mã (runs > 0)
-  if (runs > 0 && error_rate > thresholds.errorRate) {
+  // Quy tắc 4: Tỷ lệ lỗi trên tổng lần chạy > ngưỡng (Mặc định > 0.60)
+  // Chỉ áp dụng khi có lần chạy mã hợp lệ (runs > 0)
+  if (hasValidRunData && error_rate > thresholds.errorRate) {
     evidence_score += 1;
     alert_reasons.push(
       `Tỷ lệ gặp lỗi cao (${Math.round(error_rate * 100)}% trên tổng số lần chạy mã, ${total_errors} lỗi / ${runs} lần)`
@@ -120,23 +153,24 @@ export function calculateDerivedLearner(
   }
 
   // Quy tắc 5: Số ngày hoạt động trong tuần <= ngưỡng (Mặc định <= 2)
-  if (activeDays <= thresholds.activeDays) {
+  // Chỉ áp dụng khi active_days_7d được ghi nhận (không coi thiếu dữ liệu là không hoạt động)
+  if (hasValidActiveDays && activeDays <= thresholds.activeDays) {
     evidence_score += 1;
     alert_reasons.push(
       `Số ngày hoạt động trong 7 ngày qua rất ít (${activeDays} ngày, ${loginCount} lượt đăng nhập)`
     );
   }
 
-  // Quy tắc 6: Xu hướng kết quả kiểm thử suy giảm
+  // Quy tắc 6: Xu hướng kết quả kiểm thử suy giảm so với tuần trước
   if (progress_trend === 'DECLINING') {
     evidence_score += 1;
     alert_reasons.push(
-      `Kết quả kiểm thử có xu hướng giảm liên tục (${Math.round(prevPass * 100)}% xuống ${Math.round(currPass * 100)}%)`
+      `Kết quả kiểm thử sụt giảm so với tuần trước (từ ${Math.round(prevPass * 100)}% xuống ${Math.round(currPass * 100)}%)`
     );
   }
 
   // Quy tắc 7: Vòng lặp bế tắc - chạy mã nhiều lần (>=15) nhưng tỷ lệ test đạt thấp (<40%)
-  if (runs >= thresholds.highRunThreshold && test_pass_rate < thresholds.lowPassWithHighRun) {
+  if (hasValidRunData && runs >= thresholds.highRunThreshold && hasValidTestData && test_pass_rate < thresholds.lowPassWithHighRun) {
     evidence_score += 1;
     alert_reasons.push(
       `Đã chạy chương trình ${runs} lần nhưng chỉ vượt ${Math.round(test_pass_rate * 100)}% bộ kiểm thử (dấu hiệu bế tắc/thử-sai mù quáng)`

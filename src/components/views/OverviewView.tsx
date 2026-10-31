@@ -104,7 +104,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     (l) => l.alert_status === 'ALERT' && l.teacher_confirmation === 'UNREVIEWED'
   ).length;
 
-  // Chart A & B: Weekly trends - Chỉ tính từ tử số và mẫu số thực tế, loại bỏ công thức biến đổi giả định
+  // Thống kê can thiệp đang tiến hành (chỉ tính IN_PROGRESS, loại trừ PENDING/COMPLETED/STOPPED)
+  const inProgressInterventionsCount = learners.filter(
+    (l) => l.intervention_status === 'IN_PROGRESS'
+  ).length;
+
+  // Chart A & B: Weekly trends - Hiển thị số bài nộp trung bình khi không có mẫu số số bài giao từng tuần
   const weeklyTrends = [1, 2, 3, 4, 5, 6].map((wk) => {
     let sumPass = 0;
     let sumRuns = 0;
@@ -125,12 +130,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
     const hasData = count > 0;
     const avgPass = hasData ? (sumPass / count) * 100 : null;
-    const avgSub = hasData ? (sumSubmitted / count) * 100 : null;
+    const avgSub = hasData ? Number((sumSubmitted / count).toFixed(2)) : null;
 
     return {
       week: `Tuần ${wk}`,
       testPassRate: avgPass !== null ? Number(avgPass.toFixed(1)) : null,
-      submissionRate: avgSub !== null ? Number(avgSub.toFixed(1)) : null,
+      avgSubmitted: avgSub,
       avgRuns: hasData ? Number((sumRuns / count).toFixed(1)) : null,
       avgErrors: hasData ? Number((sumErrors / count).toFixed(1)) : null,
     };
@@ -251,17 +256,17 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               Chưa có dữ liệu cho Tuần {selectedWeek}
             </h3>
             <p className="text-amber-800">
-              Khóa học lập trình hiện đang ở tiến độ <strong>Tuần 6</strong>. Dữ liệu cho các tuần tiếp theo sẽ được tự động đồng bộ khi buổi lab tương ứng diễn ra.
+              Khóa học lập trình hiện đang ở tiến độ <strong>Tuần 6</strong> (mốc đánh giá chẩn đoán hiện tại). Tuần 1–5 cung cấp dữ liệu nhật ký lịch sử; các tuần tiếp theo (Tuần 7+) là dữ liệu tương lai chưa diễn ra. Toàn bộ dữ liệu được lưu trữ an toàn trong trình duyệt (localStorage), không có kết nối ngầm với hệ thống LMS bên ngoài.
             </p>
           </div>
         </div>
       )}
 
-      {/* 6 KPI Cards (Diagnostic week or full view) */}
+      {/* KPI Cards Row (bao gồm can thiệp đang tiến hành) */}
       {!isFutureWeek && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           {/* KPI 1 */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">Tổng người học</div>
             <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {totalLearners}
@@ -270,7 +275,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           {/* KPI 2 */}
-          <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/20 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-rose-200 bg-rose-50/20 shadow-2xs">
             <div className="text-xs font-medium text-rose-700 mb-1 flex items-center justify-between">
               <span>Có dấu hiệu cần hỗ trợ</span>
               <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
@@ -284,7 +289,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           {/* KPI 3 */}
-          <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
             <div className="text-xs font-medium text-amber-700 mb-1 flex items-center justify-between">
               <span>Theo dõi thêm</span>
               <Eye className="w-3.5 h-3.5 text-amber-600" />
@@ -298,9 +303,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           {/* KPI 4 */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">
-              {isPastWeek ? `Nộp bài T.${selectedWeek}` : 'Tỷ lệ nộp bài tích lũy'}
+              {isPastWeek ? `Nộp bài T.${selectedWeek}` : 'Tỷ lệ nộp tích lũy'}
             </div>
             <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {isPastWeek ? `${weekAvgSubmitted} bài` : `${Math.round(avgSubmissionRate * 100)}%`}
@@ -311,20 +316,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           {/* KPI 5 */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">
-              {isPastWeek ? `Test pass T.${selectedWeek}` : 'Test case đạt tích lũy'}
+              {isPastWeek ? `Test pass T.${selectedWeek}` : 'Test case tích lũy'}
             </div>
             <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {isPastWeek ? `${(weekAvgPassRate * 100).toFixed(0)}%` : `${Math.round(avgTestPassRate * 100)}%`}
             </div>
             <div className="text-[11px] text-slate-500 mt-1">
-              {isPastWeek ? `Thực tế tuần ${selectedWeek}` : 'Ngưỡng tối thiểu: 50%'}
+              {isPastWeek ? `Mô phỏng tuần ${selectedWeek}` : 'Ngưỡng tối thiểu: 50%'}
             </div>
           </div>
 
           {/* KPI 6 */}
-          <div className="bg-white p-4 rounded-xl border border-sky-200 bg-sky-50/20 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-sky-200 bg-sky-50/20 shadow-2xs">
             <div className="text-xs font-medium text-sky-800 mb-1 flex items-center justify-between">
               <span>Cảnh báo chưa xem</span>
               <span className="w-2 h-2 rounded-full bg-sky-600" />
@@ -336,20 +341,37 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               {isPastWeek ? 'Xem xét tại tuần 6' : 'Đang chờ GV xác nhận'}
             </div>
           </div>
+
+          {/* KPI 7: Can thiệp đang tiến hành */}
+          <div
+            onClick={() => onNavigateToTab('interventions')}
+            className="bg-white p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/20 shadow-2xs cursor-pointer hover:border-indigo-400 transition"
+          >
+            <div className="text-xs font-medium text-indigo-800 mb-1 flex items-center justify-between">
+              <span>Đang can thiệp</span>
+              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+            </div>
+            <div className="text-2xl font-bold text-indigo-800 font-mono tabular-nums">
+              {inProgressInterventionsCount}
+            </div>
+            <div className="text-[11px] text-indigo-700 mt-1">
+              Kế hoạch đang thực hiện
+            </div>
+          </div>
         </div>
       )}
 
       {/* Grid of 4 Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart A: Xu hướng tỷ lệ hoàn thành theo tuần */}
+        {/* Chart A: Số bài nộp trung bình theo tuần */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-2">
             <div>
               <h2 className="text-sm font-bold text-slate-900">
-                A. Xu hướng tỷ lệ hoàn thành bài tập theo tuần
+                A. Số bài nộp trung bình theo tuần (Average Submissions per Week)
               </h2>
               <p className="text-xs text-slate-500">
-                Tỷ lệ người học nộp đúng hạn qua các tuần học 1 đến 6
+                Số lượng bài tập được nộp trung bình trên mỗi người học qua các tuần học 1 đến 6
               </p>
             </div>
           </div>
@@ -364,26 +386,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="week" stroke="#64748b" fontSize={11} />
-                <YAxis unit="%" stroke="#64748b" fontSize={11} domain={[40, 100]} />
+                <YAxis unit=" bài" stroke="#64748b" fontSize={11} domain={[0, 'auto']} />
                 <Tooltip
-                  formatter={(val: any) => [val !== null && val !== undefined ? `${val}%` : 'N/A', 'Tỷ lệ hoàn thành']}
+                  formatter={(val: any) => [val !== null && val !== undefined ? `${val} bài` : 'Chưa có dữ liệu', 'Số bài nộp TB']}
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
                 />
                 <Area
                   type="monotone"
-                  dataKey="submissionRate"
+                  dataKey="avgSubmitted"
                   stroke="#0284c7"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorSub)"
-                  name="Tỷ lệ nộp bài"
+                  name="Số bài nộp TB"
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
           <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2.5 mt-2 flex items-center justify-between">
-            <span>Ghi chú: Thống kê tỷ lệ nộp bài thực tế từ dữ liệu học tập qua từng tuần.</span>
-            <span className="font-mono text-slate-600 font-medium">Dữ liệu thực tế</span>
+            <span>Ghi chú: Thống kê số bài nộp trung bình/người học do nhật ký không lưu số bài giao từng tuần.</span>
+            <span className="font-mono text-slate-600 font-medium">Dữ liệu mô phỏng</span>
           </div>
         </div>
 

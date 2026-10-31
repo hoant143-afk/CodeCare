@@ -70,12 +70,10 @@ export default function App() {
   }, [allDerivedLearners]);
 
   const activeInterventionsCount = useMemo(() => {
-    return allDerivedLearners.filter(
-      (l) =>
-        l.teacher_confirmation === 'CONFIRMED' ||
-        (l.intervention_status && l.intervention_status !== 'NONE')
+    return visibleLearners.filter(
+      (l) => l.intervention_status === 'IN_PROGRESS'
     ).length;
-  }, [allDerivedLearners]);
+  }, [visibleLearners]);
 
   // Handlers
   const handleReviewAlert = (
